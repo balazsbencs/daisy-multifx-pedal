@@ -1,0 +1,104 @@
+#include "room_reverb.h"
+#include "daisy_seed.h"
+
+using namespace pedal::reverb_fx;
+
+namespace pedal {
+
+namespace {
+
+// SDRAM buffers
+static float DSY_SDRAM_BSS buf_pre_delay[24000];
+static float DSY_SDRAM_BSS buf_er[4096];
+static float DSY_SDRAM_BSS buf_diff0[143];
+static float DSY_SDRAM_BSS buf_diff1[108];
+static float DSY_SDRAM_BSS buf_diff2[380];
+static float DSY_SDRAM_BSS buf_diff3[278];
+static float DSY_SDRAM_BSS buf_fdn0[2904];
+static float DSY_SDRAM_BSS buf_fdn1[3492];
+static float DSY_SDRAM_BSS buf_fdn2[4160];
+static float DSY_SDRAM_BSS buf_fdn3[4814];
+
+// ER tap table: 8 taps, typical small-room reflections
+static constexpr ErTap kErTaps[] = {
+    {336,  0.80f, -0.70f},
+    {624,  0.70f,  0.70f},
+    {912,  0.60f, -0.50f},
+    {1392, 0.50f,  0.50f},
+    {1776, 0.40f, -0.85f},
+    {2256, 0.35f,  0.85f},
+    {2832, 0.28f, -0.30f},
+    {3504, 0.22f,  0.30f},
+};
+
+} // namespace
+
+void RoomReverb::Init() {
+    pre_delay_.Init(buf_pre_delay, 24000);
+    pre_delay_.SetDelay(1.0f);
+
+    er_.Init(buf_er, 4096);
+    er_.SetTaps(kErTaps, 8);
+
+    float* diff_bufs[Diffuser::STAGES] = {
+        buf_diff0, buf_diff1, buf_diff2, buf_diff3
+    };
+    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, 380, 278 };
+    diffuser_.Init(diff_bufs, diff_sizes);
+    diffuser_.SetDiffusion(0.65f);
+
+    float* fdn_bufs[Fdn::MAX_LINES] = {
+        buf_fdn0, buf_fdn1, buf_fdn2, buf_fdn3
+    };
+    const size_t fdn_delays[Fdn::MAX_LINES] = { 2904, 3492, 4160, 4814 };
+    Fdn::Config fdn_cfg{4, {}, {}, SAMPLE_RATE};
+    for (int i = 0; i < 4; ++i) {
+        fdn_cfg.bufs[i]   = fdn_bufs[i];
+        fdn_cfg.delays[i] = fdn_delays[i];
+    }
+    fdn_.Init(fdn_cfg);
+    fdn_.SetDecay(2.0f);
+    fdn_.SetDamping(0.3f);
+
+    tone_.Init();
+}
+
+void RoomReverb::Reset() {
+    pre_delay_.Reset();
+    er_.Reset();
+    diffuser_.Reset();
+    fdn_.Reset();
+    tone_.Init();
+}
+
+void RoomReverb::Prepare(const ParamSet& params) {
+    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
+    fdn_.SetDecay(params.decay);
+    diffuser_.SetDiffusion(params.param2);
+    tone_.SetKnob(params.tone);
+}
+
+StereoFrame RoomReverb::Process(float input, const ParamSet& /*params*/) {
+    // Pre-delay
+    pre_delay_.Write(input);
+    const float pre = pre_delay_.Read();
+
+    // Early reflections
+    const StereoFrame er = er_.Process(pre);
+
+    // Diffuse and enter FDN
+    const float diffused = diffuser_.Process(0.5f * (er.left + er.right));
+
+    // FDN late reverb
+    const StereoFrame late = fdn_.Process(diffused);
+
+    // Tone shaping
+    const StereoFrame out{
+        tone_.Process(er.left  * 0.4f + late.left  * 0.6f),
+        tone_.Process(er.right * 0.4f + late.right * 0.6f)
+    };
+    return out;
+}
+
+} // namespace pedal

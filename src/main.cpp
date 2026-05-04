@@ -1,0 +1,270 @@
+#include "daisy_seed.h"
+#include "config/constants.h"
+#include "config/delay_mode_id.h"
+#include "config/mod_mode_id.h"
+#include "config/reverb_mode_id.h"
+#include "hardware/controls.h"
+#include "audio/audio_engine.h"
+#include "modes/delay_mode_registry.h"
+#include "modes/mod_mode_registry.h"
+#include "modes/reverb_mode_registry.h"
+#include "params/delay_param_map.h"
+#include "params/mod_param_map.h"
+#include "params/reverb_param_map.h"
+#include "params/param_range.h"
+#include "midi/midi_handler.h"
+#include "display/display_manager.h"
+#include "tempo/tempo_sync.h"
+#include "presets/preset_manager.h"
+
+using namespace daisy;
+using namespace pedal;
+
+// ── Hardware ─────────────────────────────────────────────────────────────────
+static DaisySeed hw;
+
+// ── Subsystems ────────────────────────────────────────────────────────────────
+static AudioEngine       audio_engine;
+static Controls          controls;
+static DelayModeRegistry delay_registry;
+static ModModeRegistry   mod_registry;
+static ReverbModeRegistry reverb_registry;
+static MidiHandlerPedal  midi_handler;
+static DisplayManager    display;
+static TempoSync         tempo_sync;
+static MultiPresetManager preset_manager;
+
+// ── Main-loop state ───────────────────────────────────────────────────────────
+static int active_page = 0;  // 0 = mod, 1 = delay, 2 = reverb
+
+static float     mod_norm[NUM_PARAMS]    = {0.3f, 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f};
+static float     delay_norm[NUM_PARAMS]  = {0.5f, 0.4f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f};
+static float     reverb_norm[NUM_PARAMS] = {0.4f, 0.04f, 0.5f, 0.5f, 0.0f, 0.0f, 0.5f};
+
+static ModModeId    cur_mod    = ModModeId::Chorus;
+static DelayModeId  cur_delay  = DelayModeId::Tape;
+static ReverbModeId cur_reverb = ReverbModeId::Hall;
+
+static bool hold_active   = false;
+static int  preset_slot   = 0;
+
+static uint32_t last_enc_tick_ms[NUM_PARAMS]{};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+static float Clamp01(float v) {
+    return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+}
+
+static int WrapIndex(int value, int count) {
+    value %= count;
+    return (value < 0) ? (value + count) : value;
+}
+
+static void ApplyEncoderEdit(float& target, int delta, uint32_t now,
+                              uint32_t& last_tick) {
+    if (!delta) return;
+    const int   dir   = delta > 0 ? 1 : -1;
+    int         steps = delta > 0 ? delta : -delta;
+    while (steps--) {
+        const bool  fast = last_tick && (now - last_tick <= ENCODER_FAST_WINDOW_MS);
+        const float step = fast ? PARAM_STEP_FAST : PARAM_STEP_SLOW;
+        target           = Clamp01(target + dir * step);
+        last_tick        = now;
+    }
+}
+
+static delay_fx::ParamSet BuildDelayParams(float tempo_override) {
+    using namespace delay_fx;
+    ParamSet ps;
+    ps.time    = map_param(delay_norm[0], get_param_range(cur_delay, ParamId::Time));
+    ps.repeats = map_param(delay_norm[1], get_param_range(cur_delay, ParamId::Repeats));
+    ps.mix     = map_param(delay_norm[2], get_param_range(cur_delay, ParamId::Mix));
+    ps.filter  = map_param(delay_norm[3], get_param_range(cur_delay, ParamId::Filter));
+    ps.grit    = map_param(delay_norm[4], get_param_range(cur_delay, ParamId::Grit));
+    ps.mod_spd = map_param(delay_norm[5], get_param_range(cur_delay, ParamId::ModSpd));
+    ps.mod_dep = map_param(delay_norm[6], get_param_range(cur_delay, ParamId::ModDep));
+    if (tempo_override > 0.0f) ps.time = tempo_override;
+    return ps;
+}
+
+static mod_fx::ParamSet BuildModParams(float tempo_hz_override) {
+    using namespace mod_fx;
+    ParamSet ps;
+    ps.speed = map_param(mod_norm[0], get_param_range(cur_mod, ParamId::Speed));
+    ps.depth = map_param(mod_norm[1], get_param_range(cur_mod, ParamId::Depth));
+    ps.mix   = map_param(mod_norm[2], get_param_range(cur_mod, ParamId::Mix));
+    ps.tone  = map_param(mod_norm[3], get_param_range(cur_mod, ParamId::Tone));
+    ps.p1    = map_param(mod_norm[4], get_param_range(cur_mod, ParamId::P1));
+    ps.p2    = map_param(mod_norm[5], get_param_range(cur_mod, ParamId::P2));
+    ps.level = map_param(mod_norm[6], get_param_range(cur_mod, ParamId::Level));
+    if (tempo_hz_override > 0.0f) ps.speed = tempo_hz_override;
+    return ps;
+}
+
+static reverb_fx::ParamSet BuildReverbParams() {
+    using namespace reverb_fx;
+    ParamSet ps;
+    ps.decay     = map_param(reverb_norm[0], get_param_range(cur_reverb, ParamId::Decay));
+    ps.pre_delay = map_param(reverb_norm[1], get_param_range(cur_reverb, ParamId::PreDelay));
+    ps.mix       = map_param(reverb_norm[2], get_param_range(cur_reverb, ParamId::Mix));
+    ps.tone      = map_param(reverb_norm[3], get_param_range(cur_reverb, ParamId::Tone));
+    ps.mod       = map_param(reverb_norm[4], get_param_range(cur_reverb, ParamId::Mod));
+    ps.param1    = map_param(reverb_norm[5], get_param_range(cur_reverb, ParamId::Param1));
+    ps.param2    = map_param(reverb_norm[6], get_param_range(cur_reverb, ParamId::Param2));
+    return ps;
+}
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+static void SwitchDelayMode(DelayModeId id) {
+    cur_delay = id;
+    delay_registry.Reset(id);
+    audio_engine.SetDelayMode(delay_registry.get(id));
+}
+
+static void SwitchModMode(ModModeId id) {
+    cur_mod = id;
+    mod_registry.Reset(id);
+    audio_engine.SetModMode(mod_registry.get(id));
+}
+
+static void SwitchReverbMode(ReverbModeId id) {
+    cur_reverb = id;
+    reverb_registry.Reset(id);
+    audio_engine.SetReverbMode(reverb_registry.get(id));
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+int main() {
+    hw.Init();
+    hw.SetAudioBlockSize(BLOCK_SIZE);
+    hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
+
+    controls.Init(hw);
+    delay_registry.Init();
+    mod_registry.Init();
+    reverb_registry.Init();
+
+    audio_engine.Init(&hw);
+    SwitchModMode(cur_mod);
+    SwitchDelayMode(cur_delay);
+    SwitchReverbMode(cur_reverb);
+
+    midi_handler.Init(hw);
+    // libDaisy's default UART MIDI uses D13/D14, which this build also uses
+    // for the ST7789 CS/DC pins. Init the display after MIDI so those pins
+    // end up configured for the screen, matching the working delay project.
+    display.Init();
+    preset_manager.Init(hw);
+    tempo_sync.Init();
+
+    hw.StartAudio(AudioEngine::AudioCallback);
+
+    uint32_t display_last_ms = 0;
+
+    while (true) {
+        const uint32_t now = System::GetNow();
+        controls.Poll();
+        const ControlState& ctrl = controls.state();
+
+        // ── Page switching (mode encoder button) ─────────────────────────────
+        if (ctrl.mode_encoder_pressed) {
+            active_page = (active_page + 1) % 3;
+        }
+
+        // ── Mode selection within active page (mode encoder rotation) ─────────
+        const int mode_delta = ctrl.mode_encoder_increment;
+        if (mode_delta) {
+            const int dir = (mode_delta > 0) ? 1 : -1;
+            switch (active_page) {
+                case 0: {
+                    const int m = WrapIndex(static_cast<int>(cur_mod) + dir,
+                                            NUM_MOD_MODES);
+                    SwitchModMode(static_cast<ModModeId>(m));
+                    break;
+                }
+                case 1: {
+                    const int m = WrapIndex(static_cast<int>(cur_delay) + dir,
+                                            NUM_DELAY_MODES);
+                    SwitchDelayMode(static_cast<DelayModeId>(m));
+                    break;
+                }
+                case 2: {
+                    const int m = WrapIndex(static_cast<int>(cur_reverb) + dir,
+                                            NUM_REVERB_MODES);
+                    SwitchReverbMode(static_cast<ReverbModeId>(m));
+                    break;
+                }
+            }
+        }
+
+        // ── Parameter encoders → active page params ────────────────────────────
+        float* active_norm = (active_page == 0) ? mod_norm :
+                             (active_page == 1) ? delay_norm : reverb_norm;
+
+        const bool shift = ctrl.mode_encoder_held;
+        for (int p = 0; p < 4; ++p) {
+            const int delta = ctrl.param_encoder_increment[p];
+            if (!delta) continue;
+            const int param_idx = shift ? (p + 4) : p;
+            if (param_idx < NUM_PARAMS) {
+                ApplyEncoderEdit(active_norm[param_idx], delta, now,
+                                 last_enc_tick_ms[param_idx]);
+            }
+        }
+
+        // ── Tap footswitch ─────────────────────────────────────────────────────
+        if (ctrl.tap_pressed) {
+            tempo_sync.OnTap(now);
+        }
+        if (ctrl.tap_held && ctrl.tap_held_ms > 500) {
+            if (!hold_active) {
+                hold_active = true;
+                audio_engine.SetHold(true);
+            }
+        }
+        if (ctrl.tap_released && ctrl.tap_held_ms <= 500) {
+            if (hold_active) {
+                hold_active = false;
+                audio_engine.SetHold(false);
+            }
+        }
+
+        // ── MIDI ───────────────────────────────────────────────────────────────
+        MultiMidiState midi;
+        midi_handler.Poll(midi);
+
+        for (int p = 0; p < NUM_PARAMS; ++p) {
+            if (midi.mod_cc_rx[p])    mod_norm[p]    = midi.mod_cc[p];
+            if (midi.delay_cc_rx[p])  delay_norm[p]  = midi.delay_cc[p];
+            if (midi.reverb_cc_rx[p]) reverb_norm[p] = midi.reverb_cc[p];
+        }
+        if (midi.hold_on)  { hold_active = true;  audio_engine.SetHold(true);  }
+        if (midi.hold_off) { hold_active = false; audio_engine.SetHold(false); }
+
+        if (midi.clock_tick) tempo_sync.OnMidiClock(now);
+        if (midi.clock_stop) tempo_sync.OnMidiStop();
+
+        // ── Tempo sync ─────────────────────────────────────────────────────────
+        tempo_sync.Process(now);
+        const float tempo_s  = tempo_sync.GetOverrideSeconds();
+        const float tempo_hz = (tempo_s > 0.0f) ? (1.0f / tempo_s) : 0.0f;
+
+        // ── Build and publish params ───────────────────────────────────────────
+        MultiParamBuf buf;
+        buf.mod         = BuildModParams(tempo_hz);
+        buf.delay       = BuildDelayParams(tempo_s);
+        buf.reverb      = BuildReverbParams();
+        buf.hold_active = hold_active;
+        audio_engine.SetParams(buf);
+
+        // ── Display ────────────────────────────────────────────────────────────
+        if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
+            display_last_ms = now;
+            display.Update(active_page,
+                           cur_mod, cur_delay, cur_reverb,
+                           buf.mod, buf.delay, buf.reverb,
+                           hold_active, preset_slot,
+                           PresetUiEvent::None, now);
+        }
+    }
+}
