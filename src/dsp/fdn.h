@@ -12,9 +12,15 @@ public:
     static constexpr int MAX_LINES = 8;
 
     struct Config {
-        int    n_lines;                  // 4 or 8
-        float* bufs[MAX_LINES];          // per-line SDRAM buffers
-        size_t delays[MAX_LINES];        // per-line delay in samples
+        // Must be 4 or 8; other values fall back to 4-line Hadamard mixing.
+        int    n_lines;
+        // bufs[i]: DSY_SDRAM_BSS float array with at least delays[i] elements.
+        // Indices >= n_lines must be nullptr (unused lines are not touched).
+        float* bufs[MAX_LINES];
+        // delays[i]: delay length in samples; must be >= 1 for active lines.
+        // Minimum buffer size for line i: delays[i] * sizeof(float) bytes.
+        // Indices >= n_lines must be 0.
+        size_t delays[MAX_LINES];
         float  sample_rate;
     };
 

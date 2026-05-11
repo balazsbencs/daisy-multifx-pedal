@@ -64,7 +64,9 @@ void Controls::Init(daisy::DaisySeed& hw) {
     param_enc_[1].Init(pins::PARAM_ENC_1_A, pins::PARAM_ENC_1_B);
     param_enc_[2].Init(pins::PARAM_ENC_2_A, pins::PARAM_ENC_2_B);
     param_enc_[3].Init(pins::PARAM_ENC_3_A, pins::PARAM_ENC_3_B);
-    sw_bypass_.Init(pins::SW_BYPASS);
+    sw_fx_[0].Init(pins::SW_FX_MOD);
+    sw_fx_[1].Init(pins::SW_FX_DELAY);
+    sw_fx_[2].Init(pins::SW_FX_REVERB);
     sw_tap_.Init(pins::SW_TAP);
 
     // TIM3 at 500 Hz: ISR_freq = APB1 / ((PSC+1)*(ARR+1)) = 120MHz/(120*2000)
@@ -91,7 +93,7 @@ void Controls::Poll() {
 
     // Switches debounced at main-loop rate (slow transitions, no ISR needed).
     encoder_.Debounce();
-    sw_bypass_.Debounce();
+    for (int i = 0; i < 3; ++i) sw_fx_[i].Debounce();
     sw_tap_.Debounce();
 
     for (int i = 0; i < 4; ++i) {
@@ -101,12 +103,11 @@ void Controls::Poll() {
     state_.mode_encoder_increment = encoder_.Increment();
     state_.mode_encoder_pressed   = encoder_.FallingEdge();
     state_.mode_encoder_held      = encoder_.Pressed();
-    state_.bypass_pressed  = sw_bypass_.RisingEdge();
+    for (int i = 0; i < 3; ++i) state_.fx_pressed[i] = sw_fx_[i].RisingEdge();
     state_.tap_pressed     = sw_tap_.RisingEdge();
     state_.tap_released    = sw_tap_.FallingEdge();
     state_.tap_held        = sw_tap_.Pressed();
     state_.tap_held_ms     = static_cast<uint32_t>(sw_tap_.TimeHeldMs());
-    state_.bypass_held     = sw_bypass_.Pressed();
 }
 
 } // namespace pedal

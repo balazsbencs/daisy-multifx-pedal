@@ -195,8 +195,8 @@ build/plate_reverb.o: src/modes/plate_reverb.cpp \
  third_party/libDaisy/src/util/WavParser.h \
  third_party/libDaisy/src/util/WavPlayer.h \
  third_party/libDaisy/src/daisy.h \
- third_party/libDaisy/src/util/WavWriter.h src/modes/../dsp/comb_filter.h \
- src/modes/../dsp/tone_filter.h src/modes/../dsp/../config/constants.h
+ third_party/libDaisy/src/util/WavWriter.h src/modes/../dsp/lfo.h \
+ src/modes/../dsp/../config/constants.h src/modes/../dsp/fast_math.h
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h7xx.h:
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h750xx.h:
 third_party/libDaisy/Drivers/CMSIS_5/CMSIS/Core/Include/core_cm7.h:
@@ -406,6 +406,6 @@ third_party/libDaisy/src/util/WavParser.h:
 third_party/libDaisy/src/util/WavPlayer.h:
 third_party/libDaisy/src/daisy.h:
 third_party/libDaisy/src/util/WavWriter.h:
-src/modes/../dsp/comb_filter.h:
-src/modes/../dsp/tone_filter.h:
+src/modes/../dsp/lfo.h:
 src/modes/../dsp/../config/constants.h:
+src/modes/../dsp/fast_math.h:

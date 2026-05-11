@@ -24,6 +24,7 @@ public:
                 const mod_fx::ParamSet&    mod_params,
                 const delay_fx::ParamSet&  delay_params,
                 const reverb_fx::ParamSet& reverb_params,
+                const bool    fx_enabled[3],
                 bool          hold_active,
                 int           preset_slot,
                 PresetUiEvent preset_event,
@@ -39,6 +40,7 @@ private:
                 const mod_fx::ParamSet&    mod_params,
                 const delay_fx::ParamSet&  delay_params,
                 const reverb_fx::ParamSet& reverb_params,
+                const bool    fx_enabled[3],
                 bool          hold_active,
                 int           preset_slot,
                 PresetUiEvent preset_event);

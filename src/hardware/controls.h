@@ -8,13 +8,12 @@ struct ControlState {
     int  mode_encoder_increment;       // -1, 0, +1 since last poll
     int  param_encoder_increment[4]{}; // 4 parameter encoders
     bool mode_encoder_pressed;         // falling edge
-    bool mode_encoder_held;            // currently held
-    bool bypass_pressed;               // rising edge
+    bool mode_encoder_held;             // currently held
+    bool fx_pressed[3]{};              // rising edge per effect (0=mod,1=delay,2=reverb)
     bool tap_pressed;                  // rising edge
     bool tap_released;                 // falling edge
     bool tap_held;                     // currently held
     uint32_t tap_held_ms;              // held duration while pressed
-    bool bypass_held;                  // currently held
 };
 
 class Controls {
@@ -45,7 +44,7 @@ private:
 
     daisy::Encoder     encoder_;
     QuadEncoder        param_enc_[4];
-    daisy::Switch      sw_bypass_;
+    daisy::Switch      sw_fx_[3];
     daisy::Switch      sw_tap_;
     ControlState       state_{};
     daisy::TimerHandle enc_timer_;

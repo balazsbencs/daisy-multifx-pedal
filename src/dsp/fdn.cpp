@@ -1,4 +1,5 @@
 #include "fdn.h"
+#include "fast_math.h"
 #include <cmath>
 #include <cstring>
 
@@ -80,7 +81,7 @@ StereoFrame Fdn::Process(float input) {
     for (int i = 0; i < n_lines_; ++i) {
         float delay = delay_samples_[i];
         if (mod_depth_ > 0.0f) {
-            const float lfo = std::sin(lfo_phase_[i] * 6.28318530718f);
+            const float lfo = fast_sin(lfo_phase_[i] * 6.28318530718f);
             delay += mod_depth_ * lfo;
             if (delay < 1.0f) delay = 1.0f;
         }

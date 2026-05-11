@@ -87,16 +87,16 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
     UpdateMixCoeffs(p);
 
     // Per-block prepare (expensive coefficient updates, LFO stepping, etc.)
-    if (mod_mode_)    mod_mode_->Prepare(p.mod);
-    if (delay_mode_)  delay_mode_->Prepare(p.delay);
-    if (reverb_mode_) reverb_mode_->Prepare(p.reverb);
+    if (mod_mode_    && p.fx_enabled[0]) mod_mode_->Prepare(p.mod);
+    if (delay_mode_  && p.fx_enabled[1]) delay_mode_->Prepare(p.delay);
+    if (reverb_mode_ && p.fx_enabled[2]) reverb_mode_->Prepare(p.reverb);
 
     for (size_t i = 0; i < size; ++i) {
         const float dry = IN_L[i];
 
         // Stage 1: modulation (stereo in/out)
         StereoFrame s1;
-        if (mod_mode_) {
+        if (mod_mode_ && p.fx_enabled[0]) {
             const StereoFrame wet = mod_mode_->Process({dry, dry}, p.mod);
             s1.left  = (dry * mod_dry_ + wet.left  * mod_wet_) * mod_norm_;
             s1.right = (dry * mod_dry_ + wet.right * mod_wet_) * mod_norm_;
@@ -106,7 +106,7 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
 
         // Stage 2: delay (mono input from s1.left → stereo out)
         StereoFrame s2;
-        if (delay_mode_) {
+        if (delay_mode_ && p.fx_enabled[1]) {
             const StereoFrame wet = delay_mode_->Process(s1.left, p.delay);
             s2.left  = (s1.left * dly_dry_ + wet.left  * dly_wet_) * dly_norm_;
             s2.right = (s1.left * dly_dry_ + wet.right * dly_wet_) * dly_norm_;
@@ -116,7 +116,7 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
 
         // Stage 3: reverb (mono input from s2.left → stereo out)
         StereoFrame s3;
-        if (reverb_mode_) {
+        if (reverb_mode_ && p.fx_enabled[2]) {
             const StereoFrame wet = reverb_mode_->Process(s2.left, p.reverb);
             s3.left  = (s2.left * rev_dry_ + wet.left  * rev_wet_) * rev_norm_;
             s3.right = (s2.left * rev_dry_ + wet.right * rev_wet_) * rev_norm_;

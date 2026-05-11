@@ -200,8 +200,9 @@ build/reverb_mode_registry.o: src/modes/reverb_mode_registry.cpp \
  src/modes/../dsp/early_reflections.h src/modes/../dsp/diffuser.h \
  src/modes/../dsp/allpass.h src/modes/../dsp/fdn.h \
  src/modes/../dsp/tone_filter.h src/modes/hall_reverb.h \
- src/modes/plate_reverb.h src/modes/../dsp/comb_filter.h \
- src/modes/spring_reverb.h src/modes/../dsp/saturation.h
+ src/modes/plate_reverb.h src/modes/../dsp/lfo.h \
+ src/modes/../dsp/fast_math.h src/modes/spring_reverb.h \
+ src/modes/../dsp/comb_filter.h src/modes/../dsp/saturation.h
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h7xx.h:
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h750xx.h:
 third_party/libDaisy/Drivers/CMSIS_5/CMSIS/Core/Include/core_cm7.h:
@@ -420,6 +421,8 @@ src/modes/../dsp/fdn.h:
 src/modes/../dsp/tone_filter.h:
 src/modes/hall_reverb.h:
 src/modes/plate_reverb.h:
-src/modes/../dsp/comb_filter.h:
+src/modes/../dsp/lfo.h:
+src/modes/../dsp/fast_math.h:
 src/modes/spring_reverb.h:
+src/modes/../dsp/comb_filter.h:
 src/modes/../dsp/saturation.h:

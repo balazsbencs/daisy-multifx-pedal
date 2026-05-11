@@ -3,6 +3,7 @@
 #include "config/delay_mode_id.h"
 #include "config/mod_mode_id.h"
 #include "config/reverb_mode_id.h"
+#include "config/pin_map.h"
 #include "hardware/controls.h"
 #include "audio/audio_engine.h"
 #include "modes/delay_mode_registry.h"
@@ -47,6 +48,10 @@ static ReverbModeId cur_reverb = ReverbModeId::Hall;
 
 static bool hold_active   = false;
 static int  preset_slot   = 0;
+static bool fx_enabled[3] = {false, false, false}; // 0=mod,1=delay,2=reverb — off by default
+
+// Status LEDs (one per effect footswitch)
+static daisy::GPIO led_fx[3];
 
 static uint32_t last_enc_tick_ms[NUM_PARAMS]{};
 
@@ -144,6 +149,11 @@ int main() {
     mod_registry.Init();
     reverb_registry.Init();
 
+    led_fx[0].Init(pins::LED_FX_MOD,    GPIO::Mode::OUTPUT);
+    led_fx[1].Init(pins::LED_FX_DELAY,  GPIO::Mode::OUTPUT);
+    led_fx[2].Init(pins::LED_FX_REVERB, GPIO::Mode::OUTPUT);
+    for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
+
     audio_engine.Init(&hw);
     SwitchModMode(cur_mod);
     SwitchDelayMode(cur_delay);
@@ -165,6 +175,14 @@ int main() {
         const uint32_t now = System::GetNow();
         controls.Poll();
         const ControlState& ctrl = controls.state();
+
+        // ── Effect on/off footswitches ───────────────────────────────────────
+        for (int i = 0; i < 3; ++i) {
+            if (ctrl.fx_pressed[i]) {
+                fx_enabled[i] = !fx_enabled[i];
+                led_fx[i].Write(fx_enabled[i]);
+            }
+        }
 
         // ── Page switching (mode encoder button) ─────────────────────────────
         if (ctrl.mode_encoder_pressed) {
@@ -255,6 +273,7 @@ int main() {
         buf.delay       = BuildDelayParams(tempo_s);
         buf.reverb      = BuildReverbParams();
         buf.hold_active = hold_active;
+        for (int i = 0; i < 3; ++i) buf.fx_enabled[i] = fx_enabled[i];
         audio_engine.SetParams(buf);
 
         // ── Display ────────────────────────────────────────────────────────────
@@ -263,7 +282,7 @@ int main() {
             display.Update(active_page,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
-                           hold_active, preset_slot,
+                           fx_enabled, hold_active, preset_slot,
                            PresetUiEvent::None, now);
         }
     }

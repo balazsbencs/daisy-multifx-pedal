@@ -1,5 +1,6 @@
 #include "destroyer_mode.h"
 #include "../config/constants.h"
+#include "../dsp/fast_math.h"
 #include <cmath>
 
 using namespace pedal::mod_fx;
@@ -59,10 +60,8 @@ StereoFrame DestroyerMode::Process(StereoFrame input, const ParamSet& params) {
 
     // Vinyl noise: P2 0..1 → noise blend amount
     if (params.p2 > 0.0f) {
-        rand_ = rand_ * 1664525u + 1013904223u;
-        const float noise = static_cast<float>(static_cast<int32_t>(rand_))
-                          * (1.0f / 2147483648.0f)
-                          * params.p2 * 0.02f;
+        rand_       = lcg_next(rand_);
+        const float noise = lcg_to_float(rand_) * params.p2 * 0.02f;
         wet += noise;
     }
 

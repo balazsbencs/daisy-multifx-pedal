@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make -j4)",
+      "Read(//Users/bbalazs/.claude/**)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{try{const i=JSON.parse\\(d\\);const p=i.tool_input?.file_path||'';if\\(/\\\\.\\(md|txt\\)$/.test\\(p\\)&&!/\\(README|CLAUDE|AGENTS|CONTRIBUTING|HARDWARE|USER_MANUAL|MANUAL|GUIDE|BUILD|CHANGELOG|LICENSE|ARCHITECTURE|INSTALL|USAGE\\)\\\\.md$/.test\\(p\\)&&!/\\\\.claude\\\\/plans\\\\//.test\\(p\\)\\){console.error\\('BLOCKED'\\);process.exit\\(2\\)}}catch{}console.log\\('OK'\\)}\\)\")",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}

@@ -1,3 +1,9 @@
+// Dattorro (1997) plate reverb.
+// Reference: Jon Dattorro, "Effect Design Part 1: Reverberator and Other Filters",
+// JAES Vol. 45 No. 9, September 1997.
+// All integer delay lengths are from the original 29761 Hz design, scaled ×1.61289
+// to match our 48000 Hz sample rate.
+
 #include "plate_reverb.h"
 #include "daisy_seed.h"
 #include "../config/constants.h"
@@ -8,80 +14,219 @@ using namespace pedal::reverb_fx;
 
 namespace pedal {
 
+// ---------------------------------------------------------------------------
+// SDRAM buffers  (all lengths = max_delay + 1)
+// ---------------------------------------------------------------------------
 namespace {
 
-static float DSY_SDRAM_BSS buf_ap0[143];
-static float DSY_SDRAM_BSS buf_ap1[108];
-static float DSY_SDRAM_BSS buf_ap2[380];
-static float DSY_SDRAM_BSS buf_ap3[278];
-static float DSY_SDRAM_BSS buf_comb0[4800];
-static float DSY_SDRAM_BSS buf_comb1[5000];
-static float DSY_SDRAM_BSS buf_comb2[5400];
-static float DSY_SDRAM_BSS buf_comb3[5802];
+// Pre-delay: 0..500 ms
+static float DSY_SDRAM_BSS buf_pre[24001];
+
+// Input diffusers  (AP1..AP4, delays: 229 173 611 447)
+static float DSY_SDRAM_BSS buf_idif0[230];
+static float DSY_SDRAM_BSS buf_idif1[174];
+static float DSY_SDRAM_BSS buf_idif2[612];
+static float DSY_SDRAM_BSS buf_idif3[448];
+
+// Tank A
+static float DSY_SDRAM_BSS buf_ap5[1098];   // mod allpass, centre 1084 ± 13
+static float DSY_SDRAM_BSS buf_d5 [7182];   // delay 7181
+static float DSY_SDRAM_BSS buf_ap7[2904];   // allpass 2903
+static float DSY_SDRAM_BSS buf_d6 [6001];   // delay 6000
+
+// Tank B
+static float DSY_SDRAM_BSS buf_ap6[1480];   // mod allpass, centre 1465 ± 13
+static float DSY_SDRAM_BSS buf_d7 [6801];   // delay 6800
+static float DSY_SDRAM_BSS buf_ap8[4285];   // allpass 4284
+static float DSY_SDRAM_BSS buf_d8 [5100];   // delay 5099
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Delay / tap constants (samples at 48 kHz)
+// ---------------------------------------------------------------------------
+namespace {
+
+// Input diffuser delays
+constexpr size_t kIdif0 = 229;
+constexpr size_t kIdif1 = 173;
+constexpr size_t kIdif2 = 611;
+constexpr size_t kIdif3 = 447;
+
+// AP5/AP6 modulated allpass centre delays and LFO depth (±13 samples)
+constexpr float kAp5Centre  = 1084.0f;
+constexpr float kAp6Centre  = 1465.0f;
+constexpr float kModDepth   = 13.0f;
+
+// Tank A delays
+constexpr float kD5Delay = 7181.0f;
+constexpr size_t kAp7    = 2903;
+constexpr float kD6Delay = 6000.0f;
+
+// Tank B delays
+constexpr float kD7Delay = 6800.0f;
+constexpr size_t kAp8    = 4284;
+constexpr float kD8Delay = 5099.0f;
+
+// Output tap read positions — read BEFORE the corresponding Write() this sample.
+// Left out  = +D5[429] + D5[4797] – AP7_out – D6[3086] + D7[3210] – D7[302]  – AP8_out
+// Right out = +D7[569] + D7[5852] – AP8_out – D8[1981] + D5[4311] – D5[3210] – AP7_out
+constexpr float kD5TapL0 = 429.0f;
+constexpr float kD5TapL1 = 4797.0f;
+constexpr float kD6TapL  = 3086.0f;
+constexpr float kD7TapL0 = 3210.0f;
+constexpr float kD7TapL1 = 302.0f;
+
+constexpr float kD7TapR0 = 569.0f;
+constexpr float kD7TapR1 = 5852.0f;
+constexpr float kD8TapR  = 1981.0f;
+constexpr float kD5TapR0 = 4311.0f;
+constexpr float kD5TapR1 = 3210.0f;
+
+// Output normalisation: sum of 7 taps per channel, empirically tuned to ~0dB
+constexpr float kOutGain = 0.35f;
+
+// RT60 → decay: average tank round-trip ≈ (7181+6000+6800+5099)/(4×48000) s
+constexpr float kAvgTankSec = (7181.0f + 6000.0f + 6800.0f + 5099.0f) / (4.0f * SAMPLE_RATE);
+
+} // namespace
+
+// ---------------------------------------------------------------------------
 void PlateReverb::Init() {
-    allpass_[0].Init(buf_ap0, 143);  allpass_[0].SetDelay(142);
-    allpass_[1].Init(buf_ap1, 108);  allpass_[1].SetDelay(107);
-    allpass_[2].Init(buf_ap2, 380);  allpass_[2].SetDelay(379);
-    allpass_[3].Init(buf_ap3, 278);  allpass_[3].SetDelay(277);
+    pre_delay_.Init(buf_pre, 24001);
 
-    comb_[0].Init(buf_comb0, 4800);  comb_[0].SetDelay(4799);
-    comb_[1].Init(buf_comb1, 5000);  comb_[1].SetDelay(4999);
-    comb_[2].Init(buf_comb2, 5400);  comb_[2].SetDelay(5399);
-    comb_[3].Init(buf_comb3, 5802);  comb_[3].SetDelay(5801);
+    idif_[0].Init(buf_idif0, 230);   idif_[0].SetDelay(kIdif0);
+    idif_[1].Init(buf_idif1, 174);   idif_[1].SetDelay(kIdif1);
+    idif_[2].Init(buf_idif2, 612);   idif_[2].SetDelay(kIdif2);
+    idif_[3].Init(buf_idif3, 448);   idif_[3].SetDelay(kIdif3);
 
-    for (auto& c : comb_) {
-        c.SetFeedback(0.6f);
-        c.SetDamping(0.4f);
-    }
+    ap5_.Init(buf_ap5, 1098);
+    d5_ .Init(buf_d5,  7182);
+    ap7_.Init(buf_ap7, 2904);   ap7_.SetDelay(kAp7);
+    d6_ .Init(buf_d6,  6001);
 
-    tone_.Init();
-    hold_ = false;
+    ap6_.Init(buf_ap6, 1480);
+    d7_ .Init(buf_d7,  6801);
+    ap8_.Init(buf_ap8, 4285);   ap8_.SetDelay(kAp8);
+    d8_ .Init(buf_d8,  5100);
+
+    // Quadrature LFOs: A at 0°, B at 90°
+    lfo_a_.Init(0.5f, LfoWave::Sine);
+    lfo_b_.Init(0.5f, LfoWave::Sine);
+    lfo_b_.SetPhaseOffset(1.5707963f);  // π/2
+
+    lp_a_ = lp_b_ = 0.0f;
+    last_ap7_ = last_ap8_ = 0.0f;
+    pre_delay_samp_ = 0;
+    decay_ = 0.5f;
+    hold_  = false;
 }
 
 void PlateReverb::Reset() {
-    for (auto& a : allpass_) a.Reset();
-    for (auto& c : comb_)    c.Reset();
-    tone_.Init();
+    pre_delay_.Reset();
+    for (auto& a : idif_) a.Reset();
+    ap5_.Reset();  d5_.Reset();  ap7_.Reset();  d6_.Reset();
+    ap6_.Reset();  d7_.Reset();  ap8_.Reset();  d8_.Reset();
+    lfo_a_.Reset();
+    lfo_b_.Reset();
+    lp_a_ = lp_b_ = 0.0f;
+    last_ap7_ = last_ap8_ = 0.0f;
     hold_ = false;
 }
 
 void PlateReverb::Prepare(const ParamSet& params) {
-    // RT60 formula: g = exp(-6.9078 * delay_s / decay_s)
-    // Average comb delay ≈ 5250 samples
-    static constexpr float kAvgDelaySec = 5250.0f / SAMPLE_RATE;
-    fb_ = hold_ ? 1.0f : std::min(0.97f, std::exp(-6.9078f * kAvgDelaySec / params.decay));
-    const float damp = 0.15f + (1.0f - params.tone) * 0.5f;
-    for (auto& c : comb_) {
-        c.SetFeedback(fb_);
-        c.SetDamping(damp);
-    }
-    tone_.SetKnob(params.tone);
+    pre_delay_samp_ = static_cast<size_t>(params.pre_delay * SAMPLE_RATE);
+    if (pre_delay_samp_ >= 24000) pre_delay_samp_ = 23999;
+
+    // RT60 → feedback coefficient
+    decay_ = hold_ ? 1.0f
+                   : std::min(0.97f, std::exp(-6.9078f * kAvgTankSec / params.decay));
+
+    // One-pole LP coefficient: tone=0 → dark (0.90), tone=1 → bright (0.05)
+    lp_coef_ = 0.90f - params.tone * 0.85f;
+
+    // LFO rate from mod param: 0.3..2.0 Hz
+    const float rate = 0.3f + params.mod * 1.7f;
+    lfo_a_.SetRate(rate);
+    lfo_b_.SetRate(rate);
 }
 
-StereoFrame PlateReverb::Process(float input, const ParamSet& /*params*/) {
-    // 4-stage allpass diffusion
-    float s = input;
-    for (auto& a : allpass_) s = a.Process(s, 0.75f);
+StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
+    // --- Pre-delay ---
+    const float predelayed = pre_delay_.ReadAt(static_cast<float>(pre_delay_samp_ + 1));
+    pre_delay_.Write(input);
 
-    // 4 parallel feedback comb filters; (1-fb) normalizes resonant peak to unity
-    const float norm  = 1.0f - fb_;
-    const float c0 = comb_[0].Process(s) * norm;
-    const float c1 = comb_[1].Process(s) * norm;
-    const float c2 = comb_[2].Process(s) * norm;
-    const float c3 = comb_[3].Process(s) * norm;
+    // --- Input diffusion (4 series Schroeder allpasses) ---
+    float s = predelayed;
+    s = idif_[0].Process(s, 0.75f);
+    s = idif_[1].Process(s, 0.75f);
+    s = idif_[2].Process(s, 0.625f);
+    s = idif_[3].Process(s, 0.625f);
 
-    const float left  = tone_.Process(0.5f * (c0 + c2));
-    const float right = tone_.Process(0.5f * (c1 + c3));
-    return StereoFrame{left, right};
+    // --- Read all output & feedback taps BEFORE any tank writes this sample ---
+    // Feedback cross-coupling
+    const float d6_fb = d6_.ReadAt(kD6Delay);
+    const float d8_fb = d8_.ReadAt(kD8Delay);
+
+    // Output taps — left channel
+    const float d5_l0 = d5_.ReadAt(kD5TapL0);
+    const float d5_l1 = d5_.ReadAt(kD5TapL1);
+    const float d6_l  = d6_.ReadAt(kD6TapL);
+    const float d7_l0 = d7_.ReadAt(kD7TapL0);
+    const float d7_l1 = d7_.ReadAt(kD7TapL1);
+
+    // Output taps — right channel
+    const float d7_r0 = d7_.ReadAt(kD7TapR0);
+    const float d7_r1 = d7_.ReadAt(kD7TapR1);
+    const float d8_r  = d8_.ReadAt(kD8TapR);
+    const float d5_r0 = d5_.ReadAt(kD5TapR0);
+    const float d5_r1 = d5_.ReadAt(kD5TapR1);
+
+    // --- Tank A: (s + decay*D8) → AP5(mod) → D5 → LP_A → AP7 → D6 ---
+    {
+        const float lfo_a   = lfo_a_.Process();
+        const float ap5_d   = kAp5Centre + kModDepth * lfo_a;
+        const float ta_in   = hold_ ? 0.0f : (s + decay_ * d8_fb);
+        const float y_ap5   = ap5_.ProcessMod(ta_in, 0.70f, ap5_d);
+        d5_.Write(y_ap5);
+
+        // Read main D5 output (written this sample → already at ReadAt(1); full delay reads past it)
+        const float d5_out  = d5_.ReadAt(kD5Delay);
+        lp_a_ = (1.0f - lp_coef_) * d5_out + lp_coef_ * lp_a_;
+
+        last_ap7_ = ap7_.Process(decay_ * lp_a_, 0.50f);
+        d6_.Write(last_ap7_);
+    }
+
+    // --- Tank B: (s + decay*D6) → AP6(mod) → D7 → LP_B → AP8 → D8 ---
+    {
+        const float lfo_b   = lfo_b_.Process();
+        const float ap6_d   = kAp6Centre + kModDepth * lfo_b;
+        const float tb_in   = hold_ ? 0.0f : (s + decay_ * d6_fb);
+        const float y_ap6   = ap6_.ProcessMod(tb_in, 0.70f, ap6_d);
+        d7_.Write(y_ap6);
+
+        const float d7_out  = d7_.ReadAt(kD7Delay);
+        lp_b_ = (1.0f - lp_coef_) * d7_out + lp_coef_ * lp_b_;
+
+        last_ap8_ = ap8_.Process(decay_ * lp_b_, 0.50f);
+        d8_.Write(last_ap8_);
+    }
+
+    // --- Output tap mix (Dattorro Figure 13) ---
+    const float wet_l = kOutGain * (  d5_l0 + d5_l1 - last_ap7_
+                                     - d6_l  + d7_l0 - d7_l1 - last_ap8_);
+    const float wet_r = kOutGain * (  d7_r0 + d7_r1 - last_ap8_
+                                     - d8_r  + d5_r0 - d5_r1 - last_ap7_);
+
+    const float mix = params.mix;
+    return StereoFrame{ input * (1.0f - mix) + wet_l * mix,
+                        input * (1.0f - mix) + wet_r * mix };
 }
 
 void PlateReverb::SetHold(bool h) {
-    hold_ = h;
-    fb_ = h ? 1.0f : fb_;
-    for (auto& c : comb_) c.SetFeedback(fb_);
+    hold_  = h;
+    decay_ = h ? 1.0f : decay_;
 }
 
 } // namespace pedal

@@ -7,7 +7,6 @@ CPP_SOURCES = \
     src/main.cpp \
     src/hardware/controls.cpp \
     src/audio/audio_engine.cpp \
-    src/audio/bypass.cpp \
     \
     src/params/delay_param_set.cpp \
     src/params/delay_param_map.cpp \

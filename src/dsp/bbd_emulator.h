@@ -1,5 +1,6 @@
 #pragma once
 #include "../config/constants.h"
+#include "fast_math.h"
 
 namespace pedal {
 
@@ -26,9 +27,8 @@ public:
         lp2_ += k * (lp1_  - lp2_);
 
         // Subtle clock noise injection
-        rand_state = rand_state * 1664525u + 1013904223u;
-        const float noise = static_cast<float>(static_cast<int32_t>(rand_state))
-                          * (1.0f / 2147483648.0f) * noise_amount * 0.002f;
+        rand_state = lcg_next(rand_state);
+        const float noise = lcg_to_float(rand_state) * noise_amount * 0.002f;
 
         // Soft saturation (tanh approximation)
         const float x = lp2_ + noise;

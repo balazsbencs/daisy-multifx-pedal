@@ -30,6 +30,7 @@ void DisplayManager::Update(int           active_page,
                             const mod_fx::ParamSet&    mod_params,
                             const delay_fx::ParamSet&  delay_params,
                             const reverb_fx::ParamSet& reverb_params,
+                            const bool    fx_enabled[3],
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event,
@@ -39,7 +40,7 @@ void DisplayManager::Update(int           active_page,
 
     Render(active_page, mod_mode, delay_mode, reverb_mode,
            mod_params, delay_params, reverb_params,
-           hold_active, preset_slot, preset_event);
+           fx_enabled, hold_active, preset_slot, preset_event);
 
     driver_.StartDmaTransfer(DisplayRenderer::FrameBuffer(),
                              DisplayRenderer::FrameBufferBytes(),
@@ -55,6 +56,7 @@ void DisplayManager::Render(int           active_page,
                             const mod_fx::ParamSet&    mod_params,
                             const delay_fx::ParamSet&  delay_params,
                             const reverb_fx::ParamSet& reverb_params,
+                            const bool    fx_enabled[3],
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event) {
@@ -171,43 +173,39 @@ void DisplayManager::Render(int           active_page,
 
     // ── Chain strip (y=281..319) ──────────────────────────────────────────────
     // Three sections: [MOD: <name>] > [DLY: <name>] > [REV: <name>]
-    // Section 0 (MOD)
-    DisplayRenderer::DrawText(0 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_TAG_Y,
-                              "MOD", kPageAccent[0], kColorBlack, Font_6x8);
-    DisplayRenderer::DrawText(0 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_NAME_Y,
-                              ModModeName(mod_mode),
-                              (active_page == 0) ? kPageAccent[0] : kColorWhite,
-                              kColorBlack, Font_6x8);
+    // Disabled sections render in kColorDim with a strikethrough across the name.
+    static const char* kChainTags[3] = { "MOD", "DLY", "REV" };
+    const char* chain_names[3] = {
+        ModModeName(mod_mode),
+        DelayModeName(delay_mode),
+        ReverbModeName(reverb_mode),
+    };
 
-    // Arrow 1
+    for (int s = 0; s < 3; ++s) {
+        const uint16_t sx = static_cast<uint16_t>(s * layout::CHAIN_SEC_W
+                                                  + layout::CHAIN_INNER_X);
+        const bool     en = fx_enabled[s];
+        const uint16_t tag_col = en ? kPageAccent[s] : kColorDim;
+        const uint16_t name_col = en ? ((active_page == s) ? kPageAccent[s] : kColorWhite)
+                                     : kColorDim;
+
+        DisplayRenderer::DrawText(sx, layout::CHAIN_TAG_Y,
+                                  kChainTags[s], tag_col, kColorBlack, Font_6x8);
+        DisplayRenderer::DrawText(sx, layout::CHAIN_NAME_Y,
+                                  chain_names[s], name_col, kColorBlack, Font_6x8);
+
+        if (!en) {
+            // Strikethrough centred on the 8px font, ~70px long.
+            DisplayRenderer::HLine(sx,
+                                   static_cast<uint16_t>(layout::CHAIN_NAME_Y + 4),
+                                   72, kColorDim);
+        }
+    }
+
     DisplayRenderer::DrawText(layout::CHAIN_ARR_X1, layout::CHAIN_ARR_Y,
                               ">", kColorWhite, kColorBlack, Font_6x8);
-
-    // Section 1 (DLY)
-    DisplayRenderer::DrawText(1 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_TAG_Y,
-                              "DLY", kPageAccent[1], kColorBlack, Font_6x8);
-    DisplayRenderer::DrawText(1 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_NAME_Y,
-                              DelayModeName(delay_mode),
-                              (active_page == 1) ? kPageAccent[1] : kColorWhite,
-                              kColorBlack, Font_6x8);
-
-    // Arrow 2
     DisplayRenderer::DrawText(layout::CHAIN_ARR_X2, layout::CHAIN_ARR_Y,
                               ">", kColorWhite, kColorBlack, Font_6x8);
-
-    // Section 2 (REV)
-    DisplayRenderer::DrawText(2 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_TAG_Y,
-                              "REV", kPageAccent[2], kColorBlack, Font_6x8);
-    DisplayRenderer::DrawText(2 * layout::CHAIN_SEC_W + layout::CHAIN_INNER_X,
-                              layout::CHAIN_NAME_Y,
-                              ReverbModeName(reverb_mode),
-                              (active_page == 2) ? kPageAccent[2] : kColorWhite,
-                              kColorBlack, Font_6x8);
 }
 
 // ── Name tables ───────────────────────────────────────────────────────────────

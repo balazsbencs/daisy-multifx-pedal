@@ -53,13 +53,13 @@ float Lfo::Process() {
     while (phase_ >= TWO_PI) {
         phase_ -= TWO_PI;
         // New S&H sample on cycle wrap
-        rand_     = rand_ * 1664525u + 1013904223u;
-        sh_value_ = static_cast<float>(static_cast<int32_t>(rand_)) * (1.0f / 2147483648.0f);
+        rand_     = lcg_next(rand_);
+        sh_value_ = lcg_to_float(rand_);
     }
     while (phase_ < 0.0f) {
         phase_ += TWO_PI;
-        rand_     = rand_ * 1664525u + 1013904223u;
-        sh_value_ = static_cast<float>(static_cast<int32_t>(rand_)) * (1.0f / 2147483648.0f);
+        rand_     = lcg_next(rand_);
+        sh_value_ = lcg_to_float(rand_);
     }
     return out;
 }
@@ -75,13 +75,13 @@ float Lfo::PrepareBlock() {
     // Normalize phase to [0, 2π) for both positive and negative increments
     while (phase_ >= TWO_PI) {
         phase_ -= TWO_PI;
-        rand_     = rand_ * 1664525u + 1013904223u;
-        sh_value_ = static_cast<float>(static_cast<int32_t>(rand_)) * (1.0f / 2147483648.0f);
+        rand_     = lcg_next(rand_);
+        sh_value_ = lcg_to_float(rand_);
     }
     while (phase_ < 0.0f) {
         phase_ += TWO_PI;
-        rand_     = rand_ * 1664525u + 1013904223u;
-        sh_value_ = static_cast<float>(static_cast<int32_t>(rand_)) * (1.0f / 2147483648.0f);
+        rand_     = lcg_next(rand_);
+        sh_value_ = lcg_to_float(rand_);
     }
     return out;
 }

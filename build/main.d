@@ -193,7 +193,7 @@ build/main.o: src/main.cpp \
  third_party/libDaisy/src/daisy.h \
  third_party/libDaisy/src/util/WavWriter.h src/config/constants.h \
  src/config/delay_mode_id.h src/config/mod_mode_id.h \
- src/config/reverb_mode_id.h src/hardware/controls.h \
+ src/config/reverb_mode_id.h src/config/pin_map.h src/hardware/controls.h \
  src/audio/audio_engine.h src/audio/stereo_frame.h \
  src/audio/../params/delay_param_set.h \
  src/audio/../params/delay_param_id.h src/audio/../params/mod_param_set.h \
@@ -414,6 +414,7 @@ src/config/constants.h:
 src/config/delay_mode_id.h:
 src/config/mod_mode_id.h:
 src/config/reverb_mode_id.h:
+src/config/pin_map.h:
 src/hardware/controls.h:
 src/audio/audio_engine.h:
 src/audio/stereo_frame.h:

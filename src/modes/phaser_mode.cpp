@@ -47,56 +47,47 @@ void PhaserMode::Prepare(const ParamSet& params) {
     // LFO coefficients computed per-sample in Process() to avoid block-boundary zipper noise.
 }
 
-StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
-    const float regen = params.p1 * 0.95f;
+StereoFrame FlangerMode::Process(StereoFrame input, const ParamSet& params) {
+    // 1. Get LFO value and create a quadrature (90 deg offset) version for the right channel
+    const float lfo_l = lfo_.Process();
+    const float lfo_r = lfo_.GetPhaseOffset(0.25f); // Assuming your LFO class supports this
 
-    // Per-sample LFO values for smooth allpass sweep.
-    const float lfo_val = lfo_.Process();
-    float coeff = center_ + depth_mod_ * lfo_val;
-    if (coeff > -0.01f) coeff = -0.01f;
-    if (coeff < -0.99f) coeff = -0.99f;
+    // 2. Calculate delays (avoiding zero for now, assuming standard mode)
+    float delay_l = (0.5f + 0.5f * lfo_l) * depth_ * max_depth_ + 1.0f;
+    float delay_r = (0.5f + 0.5f * lfo_r) * depth_ * max_depth_ + 1.0f;
 
-    if (barber_pole_) {
-        // Two independent 4-stage chains with quadrature LFOs.
-        // Crossfade based on lfo_val so one chain's sweep hands off to the other,
-        // creating the infinite rising/falling illusion.
-        const float lfo_val2 = lfo2_.Process();
-        float coeff2 = center_ + depth_mod_ * lfo_val2;
-        if (coeff2 > -0.01f) coeff2 = -0.01f;
-        if (coeff2 < -0.99f) coeff2 = -0.99f;
+    s_flanger_line_l.SetDelay(delay_l);
+    s_flanger_line_r.SetDelay(delay_r);
 
-        float xa = input.mono() + feedback_  * regen;
-        float xb = input.mono() + feedback2_ * regen;
-        for (int i = 0; i < 4; ++i) {
-            stages_[i].SetCoeff(coeff);
-            xa = stages_[i].Process(xa);
-        }
-        for (int i = 4; i < 8; ++i) {
-            stages_[i].SetCoeff(coeff2);
-            xb = stages_[i].Process(xb);
-        }
-        // DC-block each chain before feedback and blending.
-        // Allpass has unity DC gain; without blocking, residual DC recirculates
-        // with gain ≈ regen. Blending two DC-free signals gives DC-free output.
-        xa = dc_.Process(xa);
-        xb = dc2_.Process(xb);
-        feedback_  = xa;
-        feedback2_ = xb;
-        // lfo_val ∈ [-1,+1]; t=0 → all chain B, t=1 → all chain A
-        const float t = (lfo_val + 1.0f) * 0.5f;
-        const float out = xa * t + xb * (1.0f - t);
-        return {out, out};
-    }
+    // 3. Read using High-Quality Interpolation (Hermite recommended)
+    float wet_l = s_flanger_line_l.ReadHermite();
+    float wet_r = s_flanger_line_r.ReadHermite();
 
-    // Normal path: single chain with num_stages_ stages
-    float x = input.mono() + feedback_ * regen;
-    for (int i = 0; i < num_stages_; ++i) {
-        stages_[i].SetCoeff(coeff);
-        x = stages_[i].Process(x);
-    }
-    x = dc_.Process(x);
-    feedback_ = x;
-    return {x, x};
+    // 4. Calculate Feedback with Saturation and Low-Pass Damping
+    float regen = params.p1 * 0.95f;
+
+    // Soft clip the feedback to sound "analog" and prevent digital harshness
+    float fb_l = SoftClipTanh(wet_l * regen * fb_sign_);
+    float fb_r = SoftClipTanh(wet_r * regen * fb_sign_);
+
+    // Apply 1-pole Low Pass Filter to the feedback loop (darkens repeats)
+    fb_l = fb_lpf_l_.Process(fb_l);
+    fb_r = fb_lpf_r_.Process(fb_r);
+
+    // 5. Write to delay line
+    s_flanger_line_l.Write(input.l + fb_l);
+    s_flanger_line_r.Write(input.r + fb_r);
+
+    // 6. DC Block the wet signals
+    wet_l = dc_l_.Process(wet_l);
+    wet_r = dc_r_.Process(wet_r);
+
+    // 7. Mix Dry and Wet for the Flanger Comb Filter effect!
+    float mix = 0.5f; // 50/50 mix gives deepest notches
+    float out_l = (input.l * (1.0f - mix)) + (wet_l * mix);
+    float out_r = (input.r * (1.0f - mix)) + (wet_r * mix);
+
+    return {out_l, out_r};
 }
 
 } // namespace pedal

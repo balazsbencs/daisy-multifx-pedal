@@ -15,6 +15,7 @@ struct MultiParamBuf {
     delay_fx::ParamSet  delay;
     reverb_fx::ParamSet reverb;
     bool                hold_active;
+    bool                fx_enabled[3] = {false, false, false}; // 0=mod,1=delay,2=reverb — off by default
 };
 
 class AudioEngine {

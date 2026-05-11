@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 namespace pedal {
 
@@ -30,6 +31,16 @@ inline float fast_sin(float x) noexcept {
 /// Only valid for the stated range; used for the equal-power mix crossfade.
 inline float fast_cos(float x) noexcept {
     return fast_sin(1.57079633f - x);
+}
+
+/// Numerical Recipes LCG — advances a 32-bit PRNG state in-place.
+inline uint32_t lcg_next(uint32_t state) noexcept {
+    return state * 1664525u + 1013904223u;
+}
+
+/// Maps a raw LCG state to a signed float in [-1, +1].
+inline float lcg_to_float(uint32_t state) noexcept {
+    return static_cast<float>(static_cast<int32_t>(state)) * (1.0f / 2147483648.0f);
 }
 
 } // namespace pedal

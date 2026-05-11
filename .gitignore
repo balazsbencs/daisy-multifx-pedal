@@ -1,0 +1,10 @@
+build/
+*.o
+*.d
+*.lst
+*.map
+*.elf
+*.bin
+*.hex
+*.a
+.idea

@@ -27,12 +27,13 @@ void PitchShifter::Reset() {
 
 void PitchShifter::SetShift(float semitones) {
     ratio_ = std::pow(2.0f, semitones / 12.0f);
+    const float max_ratio = static_cast<float>(buf_size_) / static_cast<float>(GRAIN_SIZE);
+    if (ratio_ > max_ratio) ratio_ = max_ratio;
 }
 
 float PitchShifter::ReadInterp(float pos) const {
     const float sz = static_cast<float>(buf_size_);
-    pos = std::fmod(pos, sz);
-    if (pos < 0.0f) pos += sz;
+    while (pos >= sz) pos -= sz;
 
     const size_t i0   = static_cast<size_t>(pos);
     const float  frac = pos - static_cast<float>(i0);

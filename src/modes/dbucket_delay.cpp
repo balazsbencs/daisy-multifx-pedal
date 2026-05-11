@@ -1,6 +1,7 @@
 #include "dbucket_delay.h"
 #include "../dsp/delay_line_sdram.h"
 #include "../config/constants.h"
+#include "../dsp/fast_math.h"
 #include <cstdint>
 
 using namespace pedal::delay_fx;
@@ -12,7 +13,7 @@ static DelayLineSdram       dbucket_line;
 
 // LCG noise: returns -1..+1
 float DbucketDelay::next_noise() {
-    noise_seed_ = noise_seed_ * 1664525u + 1013904223u;
+    noise_seed_ = lcg_next(noise_seed_);
     // Map top 16 bits to -1..+1
     const int16_t s = static_cast<int16_t>(noise_seed_ >> 16u);
     return static_cast<float>(s) * (1.0f / 32768.0f);
