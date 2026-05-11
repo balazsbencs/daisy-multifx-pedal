@@ -1,0 +1,60 @@
+[changelog]
+header = """
+# Changelog
+
+All notable changes to Daisy Multi-FX are documented here.
+Versions follow [Semantic Versioning](https://semver.org/).
+Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}\
+- {% if commit.breaking %}**BREAKING** {% endif %}\
+  {{ commit.message | upper_first }} \
+  ([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }}))
+{% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits  = true
+filter_unconventional = true
+split_commits         = false
+
+commit_parsers = [
+  # Breaking changes surface first regardless of type
+  { message = "^.*!:",            group = "⚠ Breaking Changes" },
+  { body    = "BREAKING CHANGE",  group = "⚠ Breaking Changes" },
+
+  # Releasable types
+  { message = "^feat",            group = "Features" },
+  { message = "^fix",             group = "Bug Fixes" },
+  { message = "^perf",            group = "Performance" },
+  { message = "^refactor",        group = "Refactoring" },
+
+  # Skip non-releasable types
+  { message = "^docs",            skip = true },
+  { message = "^chore",           skip = true },
+  { message = "^ci",              skip = true },
+  { message = "^test",            skip = true },
+  { message = "^style",           skip = true },
+  { message = "^build",           skip = true },
+]
+
+filter_commits = false
+tag_pattern    = "v[0-9]*"
+date_order     = false
+sort_commits   = "oldest"
+
+[remote.github]
+owner = "bbalazs"
+repo  = "daisy-multi-fx"
