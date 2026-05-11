@@ -105,7 +105,7 @@ void SpringReverb::Prepare(const ParamSet& params) {
     };
     const float decay = params.decay < 0.01f ? 0.01f : params.decay;
     for (int sp = 0; sp < 3; ++sp) {
-        comb_fb_[sp] = hold_ ? 1.0f : std::expf(-6.9078f * kCombDelayS[sp] / decay);
+        comb_fb_[sp] = hold_ ? 1.0f : std::exp(-6.9078f * kCombDelayS[sp] / decay);
     }
 
     const float damp = 0.15f + params.tone * 0.3f;
@@ -117,7 +117,7 @@ void SpringReverb::Prepare(const ParamSet& params) {
     // Saturation drive from param1 (Dwell)
     // 0→1.0, 0.25→2.0, 0.5→4.0, 0.75→8.0 → desired_drive = 2^(3*param1)
     // SetDrive(x) sets drive_ = 1 + x*15, so x = (desired_drive - 1) / 15
-    const float desired_drive = std::expf(params.param1 * 3.0f * 0.693147f); // 2^(3*p1)
+    const float desired_drive = std::exp(params.param1 * 3.0f * 0.693147f); // 2^(3*p1)
     sat_.SetDrive((desired_drive - 1.0f) * (1.0f / 15.0f));
 
     tone_.SetKnob(params.tone);

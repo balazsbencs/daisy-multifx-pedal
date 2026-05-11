@@ -26,7 +26,7 @@ static float shape_gain(float phase, int shape) {
     switch (shape) {
     case 0: // Swoosh: fast attack, slow decay
         return phase < 0.1f ? (phase * 10.0f)
-                            : std::expf(-2.0f * (phase - 0.1f));
+                            : std::exp(-2.0f * (phase - 0.1f));
     case 1: // Reverse: slow attack, sharp cut
         return phase < 0.9f ? (phase / 0.9f) : 0.0f;
     case 2: // Ramp: linear fade-out
@@ -36,11 +36,11 @@ static float shape_gain(float phase, int shape) {
     case 4: // Gauss: bell curve
     {
         const float x = (phase - 0.5f) * 4.0f;
-        return std::expf(-x * x * 0.5f);
+        return std::exp(-x * x * 0.5f);
     }
     case 5: // Bounce: decaying oscillation
-        return std::fabsf(std::cosf(phase * 6.283185f * 2.0f)) *
-               std::expf(-phase * 3.0f);
+        return std::fabs(std::cos(phase * 6.283185f * 2.0f)) *
+               std::exp(-phase * 3.0f);
     default:
         return 1.0f;
     }
