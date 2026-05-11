@@ -108,7 +108,8 @@ build/vibe_mode.o: src/modes/vibe_mode.cpp \
  src/modes/../audio/stereo_frame.h src/modes/../params/mod_param_set.h \
  src/modes/../params/mod_param_id.h src/modes/../dsp/lfo.h \
  src/modes/../dsp/../config/constants.h src/modes/../dsp/fast_math.h \
- src/modes/../dsp/allpass_filter.h src/modes/../dsp/dc_blocker.h
+ src/modes/../dsp/allpass_filter.h src/modes/../dsp/dc_blocker.h \
+ src/modes/../dsp/tone_filter.h
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h7xx.h:
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h750xx.h:
 third_party/libDaisy/Drivers/CMSIS_5/CMSIS/Core/Include/core_cm7.h:
@@ -224,3 +225,4 @@ src/modes/../dsp/../config/constants.h:
 src/modes/../dsp/fast_math.h:
 src/modes/../dsp/allpass_filter.h:
 src/modes/../dsp/dc_blocker.h:
+src/modes/../dsp/tone_filter.h:

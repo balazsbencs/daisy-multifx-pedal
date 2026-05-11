@@ -31,10 +31,13 @@ void ChorusMode::Reset() {
     dc_.Init();
     dc_r_.Init();
     bbd_.Reset();
-    rand_ = 12345;
+    bbd_r_.Reset();
+    rand_       = 12345;
     sub_mode_   = 4;
     base_samps_ = 48.0f;
     mod_depth_  = 0.0f;
+    fb_samp_    = 0.0f;
+    feedback_   = 0.0f;
     delays_[0]  = 0.0f;
     delays_[1]  = 0.0f;
     delays_[2]  = 0.0f;
@@ -46,12 +49,27 @@ void ChorusMode::Prepare(const ParamSet& params) {
 
     for (auto& l : lfo_) l.SetRate(params.speed);
 
-    // Base delay: p1 maps 1ms..20ms → 48..960 samples
-    base_samps_ = 48.0f + params.p1 * 912.0f;
-
-    // LFO depth: params.depth * 480 samples = ±10ms variation.
-    // Cap to base_samps-1 so the LFO never swings the delay below 1 sample.
-    mod_depth_ = fminf(params.depth * 480.0f, base_samps_ - 1.0f);
+    if (sub_mode_ == 0) {
+        // dBucket (CE-2w style): triangle LFO matches the CE-2's clock-modulation
+        // waveform; gives a constant pitch-shift magnitude each half-cycle.
+        lfo_[0].SetWave(LfoWave::Triangle);
+        lfo_[1].SetWave(LfoWave::Triangle);
+        // CE-2 center delay 3–8 ms (144–384 samples at 48 kHz).
+        base_samps_ = 144.0f + params.p1 * 240.0f;
+        // CE-2 modulation depth: ±2 ms max (96 samples).
+        mod_depth_  = fminf(params.depth * 96.0f, base_samps_ - 1.0f);
+        // Tone controls feedback depth (0–20%). CE-2 has ~10–15% fixed; center
+        // knob (0.5) lands at 10%, matching the original circuit.
+        feedback_ = params.tone * 0.20f;
+    } else {
+        lfo_[0].SetWave(LfoWave::Sine);
+        lfo_[1].SetWave(LfoWave::Sine);
+        // Base delay: p1 maps 1 ms..20 ms → 48..960 samples
+        base_samps_ = 48.0f + params.p1 * 912.0f;
+        // LFO depth: ±10 ms max, capped so delay never goes below 1 sample
+        mod_depth_  = fminf(params.depth * 480.0f, base_samps_ - 1.0f);
+        feedback_   = 0.0f;
+    }
 
     if (sub_mode_ == 3) {
         // Detune: two static offsets, no LFO — compute once here.
@@ -67,11 +85,13 @@ void ChorusMode::Prepare(const ParamSet& params) {
 }
 
 StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
-    float write_in = input.mono();
+    const float kBufMax = static_cast<float>(kChorusBufSize - 2);
 
-    // dBucket pre-coloration
+    // dBucket: mix feedback into the write source before BBD pre-coloration.
+    // This is the output-to-input feedback path that gives CE-2 lushness.
+    float write_in = input.mono();
     if (sub_mode_ == 0) {
-        write_in = bbd_.Process(write_in, 0.15f, rand_);
+        write_in = bbd_.Process(write_in + feedback_ * fb_samp_, 0.15f, rand_);
     }
 
     s_chorus_line.Write(write_in);
@@ -83,8 +103,7 @@ StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
         for (int i = 0; i < 3; ++i) {
             float d = base_samps_ + mod_depth_ * lfo_[i].Process();
             if (d < 1.0f) d = 1.0f;
-            if (d >= static_cast<float>(kChorusBufSize - 2))
-                d = static_cast<float>(kChorusBufSize - 2);
+            if (d > kBufMax) d = kBufMax;
             delays_[i] = d;
         }
         const float t0 = s_chorus_line.ReadAt(delays_[0]);
@@ -96,17 +115,25 @@ StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
         // Detune: L=tap0, R=tap1 (pre-computed in Prepare, no LFO)
         wet_l = s_chorus_line.ReadAt(delays_[0]);
         wet_r = s_chorus_line.ReadAt(delays_[1]);
+    } else if (sub_mode_ == 0) {
+        // dBucket CE-2w: two stereo taps at 120° LFO phase offset.
+        // lfo_[0] drives L, lfo_[1] (initialised 120° ahead) drives R.
+        float d_l = base_samps_ + mod_depth_ * lfo_[0].Process();
+        float d_r = base_samps_ + mod_depth_ * lfo_[1].Process();
+        if (d_l < 1.0f) d_l = 1.0f;
+        if (d_l > kBufMax) d_l = kBufMax;
+        if (d_r < 1.0f) d_r = 1.0f;
+        if (d_r > kBufMax) d_r = kBufMax;
+        wet_l = bbd_.Deemphasis(s_chorus_line.ReadAt(d_l));
+        wet_r = bbd_r_.Deemphasis(s_chorus_line.ReadAt(d_r));
+        // Average feeds back; keeps the summed signal from building up.
+        fb_samp_ = (wet_l + wet_r) * 0.5f;
     } else {
-        // Single-voice (dBucket, Vibrato, Digital): per-sample LFO
+        // Single-voice (Vibrato=2, Digital=4): per-sample LFO, mono output
         float d = base_samps_ + mod_depth_ * lfo_[0].Process();
         if (d < 1.0f) d = 1.0f;
-        if (d >= static_cast<float>(kChorusBufSize - 2))
-            d = static_cast<float>(kChorusBufSize - 2);
-        float wet = s_chorus_line.ReadAt(d);
-        if (sub_mode_ == 0) {
-            wet = bbd_.Deemphasis(wet);  // dBucket post-coloration
-        }
-        wet_l = wet_r = wet;
+        if (d > kBufMax) d = kBufMax;
+        wet_l = wet_r = s_chorus_line.ReadAt(d);
     }
 
     wet_l = dc_.Process(wet_l);

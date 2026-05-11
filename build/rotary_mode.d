@@ -109,7 +109,7 @@ build/rotary_mode.o: src/modes/rotary_mode.cpp \
  src/modes/../params/mod_param_id.h src/modes/../dsp/lfo.h \
  src/modes/../dsp/../config/constants.h src/modes/../dsp/fast_math.h \
  src/modes/../dsp/saturation.h src/modes/../dsp/dc_blocker.h \
- src/modes/../dsp/delay_line_sdram.h \
+ src/modes/../dsp/svf.h src/modes/../dsp/delay_line_sdram.h \
  third_party/libDaisy/src/daisy_seed.h third_party/libDaisy/src/daisy.h \
  third_party/libDaisy/src/daisy_core.h third_party/libDaisy/src/version.h \
  third_party/libDaisy/src/sys/system.h third_party/libDaisy/src/per/tim.h \
@@ -313,6 +313,7 @@ src/modes/../dsp/../config/constants.h:
 src/modes/../dsp/fast_math.h:
 src/modes/../dsp/saturation.h:
 src/modes/../dsp/dc_blocker.h:
+src/modes/../dsp/svf.h:
 src/modes/../dsp/delay_line_sdram.h:
 third_party/libDaisy/src/daisy_seed.h:
 third_party/libDaisy/src/daisy.h:

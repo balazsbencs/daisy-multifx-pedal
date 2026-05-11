@@ -17,15 +17,18 @@ public:
     const char* Name() const override { return "Chorus"; }
 
 private:
-    Lfo        lfo_[3];        // 3 LFOs for Multi sub-mode (120° offsets)
-    BbdEmulator bbd_;
-    DcBlocker   dc_;           // DC blocker for left channel
-    DcBlocker   dc_r_;         // DC blocker for right channel (Multi/Detune sub-modes)
+    Lfo         lfo_[3];          // lfo_[0]/[1]: dBucket L/R + single-voice; lfo_[2]: Multi 3rd tap
+    BbdEmulator bbd_;             // BBD pre-coloration + L deemphasis
+    BbdEmulator bbd_r_;           // separate deemphasis state for dBucket R channel
+    DcBlocker   dc_;
+    DcBlocker   dc_r_;
     uint32_t    rand_ = 12345;
-    float       delays_[3] = {};  // Detune: static offsets set in Prepare(); Multi: per-sample LFO taps written and read in Process()
-    int         sub_mode_   = 4;  // cached sub-mode index
+    float       delays_[3] = {};
+    int         sub_mode_   = 4;
     float       base_samps_ = 48.0f;
     float       mod_depth_  = 0.0f;
+    float       fb_samp_    = 0.0f;  // feedback register for dBucket
+    float       feedback_   = 0.0f;  // feedback coefficient (set from tone in Prepare)
 };
 
 } // namespace pedal

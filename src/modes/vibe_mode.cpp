@@ -1,10 +1,27 @@
 #include "vibe_mode.h"
-#include "../config/constants.h"
-#include <cmath>
+#include "../dsp/fast_math.h"
 
 using namespace pedal::mod_fx;
 
 namespace pedal {
+
+static constexpr float TWO_PI = 6.28318530717958647692f;
+
+// LFO phase offsets per stage (radians): models the angular position of each
+// LDR around the lamp in the original Univox circuit. Stages sweep in a
+// rolling cascade — notches chase each other through the spectrum.
+static constexpr float kStagePhase[4]  = {0.0f, 0.384f, 0.733f, 1.100f}; // 0°, 22°, 42°, 63°
+
+// Allpass coefficient at the dark-lamp extreme (high LDR resistance = low notch).
+// Staggered to produce four distinct notch regions across the audio band.
+static constexpr float kStageCenter[4] = {-0.88f, -0.72f, -0.55f, -0.35f};
+
+// Maximum coefficient swing from center at full depth (bright lamp = high freq).
+// Higher stages sweep a wider range, matching the original's non-uniform LDR spacing.
+static constexpr float kStageSweep[4]  = {0.06f, 0.11f, 0.17f, 0.22f};
+
+// AM optical coupler sits ~90° ahead of stage 0 in the original circuit.
+static constexpr float kAmPhaseOffset = 1.5707963f; // π/2
 
 void VibeMode::Init() {
     Reset();
@@ -14,43 +31,60 @@ void VibeMode::Reset() {
     lfo_.Init(1.0f, LfoWave::Sine);
     for (auto& s : stages_) s.Reset();
     dc_.Init();
+    tone_.Init(); // initialises to flat (knob = 0.5)
     feedback_ = 0.0f;
 }
 
 void VibeMode::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.speed);
-    // LFO value and derived coefficients computed per-sample in Process()
-    // to avoid block-boundary zipper noise.
+    tone_.SetKnob(params.tone); // only recomputes coefficients when tone changes
 }
 
 StereoFrame VibeMode::Process(StereoFrame input, const ParamSet& params) {
-    // Per-sample LFO + LDR nonlinearity for smooth UniVibe sweep.
-    const float raw_lfo = lfo_.Process(); // -1..+1
-    // LDR asymmetric curve: compress positive half, expand negative.
-    const float ldr = (raw_lfo >= 0.0f) ? (raw_lfo * raw_lfo) : -(raw_lfo * raw_lfo);
+    // Capture phase before advancing so per-stage offsets are anchored to this sample.
+    const float base_phase = lfo_.GetPhase();
+    lfo_.Process(); // advance only; value discarded (computed per-stage below)
 
-    // Allpass center −0.70 → notch ≈ 1.5 kHz; depth sweeps ±0.25 → 800 Hz – 4 kHz.
-    const float lfo_coeff = -0.70f + params.depth * 0.25f * ldr;
-
-    // Amplitude modulation: slight gain reduction on positive LFO half (UniVibe throb).
-    float am_gain = 1.0f - params.depth * 0.3f * (0.5f + 0.5f * ldr);
-    if (am_gain < 0.1f) am_gain = 0.1f;
-
-    // Regen feedback
+    // Regen feedback mixed into input.
     const float regen = params.p1 * 0.7f;
     float x = input.mono() + feedback_ * regen;
 
-    // 4 allpass stages with slight per-stage coefficient offsets (non-uniform)
-    const float offsets[4] = {0.0f, 0.1f, -0.1f, 0.05f};
+    // Mild pre-saturation: germanium transistor 3rd-harmonic coloring (~4%).
+    x = x - 0.04f * x * x * x;
+
+    // Per-stage allpass sweep with independent LDR phase offsets.
     for (int i = 0; i < kStages; ++i) {
-        float c = lfo_coeff + offsets[i] * params.depth;
-        if (c > -0.01f) c = -0.01f;  // keep negative so notches stay in audio band
+        float ph = base_phase + kStagePhase[i];
+        if (ph >= TWO_PI) ph -= TWO_PI;
+
+        // Unipolar lamp brightness [0..1].
+        const float lamp = 0.5f + 0.5f * fast_sin(ph);
+
+        // Smoothstep LDR response: approximates power-law photoresistor curve.
+        // Creates asymmetric attack/decay — notches fall quickly as lamp brightens,
+        // return slowly as it dims.
+        const float ldr = lamp * lamp * (3.0f - 2.0f * lamp);
+
+        // Map ldr [0..1] → coefficient [center - sweep, center + sweep].
+        float c = kStageCenter[i] + params.depth * kStageSweep[i] * (ldr * 2.0f - 1.0f);
+        if (c > -0.01f) c = -0.01f;
         if (c < -0.99f) c = -0.99f;
         stages_[i].SetCoeff(c);
         x = stages_[i].Process(x);
     }
 
+    // AM throb: volume dips slightly ahead of the sweep peak, matching the
+    // original's separate optical coupler position at ~90° from stage 0.
+    float am_ph = base_phase + kAmPhaseOffset;
+    if (am_ph >= TWO_PI) am_ph -= TWO_PI;
+    const float am_lamp = 0.5f + 0.5f * fast_sin(am_ph);
+    float am_gain = 1.0f - params.depth * 0.12f * am_lamp;
+    if (am_gain < 0.1f) am_gain = 0.1f;
     x *= am_gain;
+
+    // Transistor preamp coloring via tone knob.
+    x = tone_.Process(x);
+
     x = dc_.Process(x);
     feedback_ = x;
     return {x, x};

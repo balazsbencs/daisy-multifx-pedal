@@ -3,11 +3,15 @@
 #include "../dsp/lfo.h"
 #include "../dsp/allpass_filter.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/tone_filter.h"
 
 namespace pedal {
 
-/// UniVibe emulation: 4 allpass stages + amplitude modulation.
-/// Warmer than Phaser due to nonlinear LDR response curve + AM component.
+/// UniVibe emulation: 4 allpass stages with per-stage phase-offset LFO modulation.
+/// Each stage models a distinct LDR position around the original circuit's lamp:
+/// independent phase offset, center frequency, and sweep depth per stage.
+/// Includes unipolar smoothstep LDR response, AM throb at 90° phase offset,
+/// and mild pre-saturation for germanium transistor coloring.
 class VibeMode : public ModMode {
 public:
     void Init() override;
@@ -18,11 +22,12 @@ public:
 
 private:
     static constexpr int kStages = 4;
-    Lfo          lfo_;
+
+    Lfo           lfo_;
     AllpassFilter stages_[kStages];
-    DcBlocker    dc_;
-    float        feedback_  = 0.0f;  // regen state
-    // lfo_coeff and am_gain computed per-sample in Process()
+    DcBlocker     dc_;
+    ToneFilter    tone_;
+    float         feedback_ = 0.0f;
 };
 
 } // namespace pedal

@@ -200,8 +200,9 @@ build/mod_mode_registry.o: src/modes/mod_mode_registry.cpp \
  third_party/libDaisy/src/util/WavWriter.h \
  src/modes/../dsp/bbd_emulator.h src/modes/../dsp/dc_blocker.h \
  src/modes/flanger_mode.h src/modes/rotary_mode.h \
- src/modes/../dsp/saturation.h src/modes/vibe_mode.h \
- src/modes/../dsp/allpass_filter.h src/modes/phaser_mode.h \
+ src/modes/../dsp/saturation.h src/modes/../dsp/svf.h \
+ src/modes/vibe_mode.h src/modes/../dsp/allpass_filter.h \
+ src/modes/../dsp/tone_filter.h src/modes/phaser_mode.h \
  src/modes/vintage_trem_mode.h
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h7xx.h:
 third_party/libDaisy/Drivers/CMSIS-Device/ST/STM32H7xx/Include/stm32h750xx.h:
@@ -421,7 +422,9 @@ src/modes/../dsp/dc_blocker.h:
 src/modes/flanger_mode.h:
 src/modes/rotary_mode.h:
 src/modes/../dsp/saturation.h:
+src/modes/../dsp/svf.h:
 src/modes/vibe_mode.h:
 src/modes/../dsp/allpass_filter.h:
+src/modes/../dsp/tone_filter.h:
 src/modes/phaser_mode.h:
 src/modes/vintage_trem_mode.h:
