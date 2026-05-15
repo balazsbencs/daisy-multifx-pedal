@@ -10,8 +10,35 @@
 
 namespace pedal {
 
-// Per-page accent colors: MOD=cyan, DLY=orange, REV=blue
 static constexpr uint16_t kPageAccent[3] = { 0x07FF, 0xFD20, 0x001F };
+
+// Returns display string for discrete-select MOD params, nullptr for continuous.
+static const char* GetModEnumLabel(ModModeId mode, int param_idx, float norm) {
+    if (param_idx != 5) return nullptr;  // only P2 is enum in the 6 mod modes
+    switch (mode) {
+        case ModModeId::Phaser: {
+            static const char* k[] = {"2 ST","4 ST","6 ST","8 ST","12 ST","16 ST","BARBER"};
+            const int i = static_cast<int>(norm * 6.999f);
+            return k[i < 7 ? i : 6];
+        }
+        case ModModeId::Chorus: {
+            static const char* k[] = {"dBUCKET","MULTI","VIBRATO","DETUNE","DIGITAL"};
+            const int i = static_cast<int>(norm * 4.999f);
+            return k[i < 5 ? i : 4];
+        }
+        case ModModeId::Flanger: {
+            static const char* k[] = {"SILVER","GREY","BLACK+","BLACK-","ZERO+","ZERO-"};
+            const int i = static_cast<int>(norm * 5.999f);
+            return k[i < 6 ? i : 5];
+        }
+        case ModModeId::VintTrem: {
+            static const char* k[] = {"TUBE","HARMONIC","PHOTO"};
+            const int i = static_cast<int>(norm * 2.999f);
+            return k[i < 3 ? i : 2];
+        }
+        default: return nullptr;
+    }
+}
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
@@ -63,58 +90,83 @@ void DisplayManager::Render(int           active_page,
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event) {
-    (void)shift;
     const uint16_t accent = kPageAccent[active_page];
-
     DisplayRenderer::Clear(kColorBlack);
 
-    // ── Header: three tab buttons (y=0..19) ──────────────────────────────────
+    // ── Tab strip ──────────────────────────────────────────────────────────────
     static const char* kTabLabels[3] = { "MOD", "DLY", "REV" };
     for (int t = 0; t < 3; ++t) {
         const uint16_t tx = static_cast<uint16_t>(t * layout::TAB_W);
         if (t == active_page) {
-            DisplayRenderer::FillRect(tx, 0,
-                                      layout::TAB_W, layout::TAB_H,
-                                      kPageAccent[t]);
-            DisplayRenderer::DrawText(tx + 26, layout::TAB_TEXT_Y,
-                                      kTabLabels[t],
-                                      kColorBlack, kPageAccent[t], Font_7x10);
+            DisplayRenderer::FillRect(tx, 0, layout::TAB_W, layout::TAB_H, kPageAccent[t]);
+            DisplayRenderer::DrawText(tx + layout::TAB_TEXT_X_OFF, layout::TAB_TEXT_Y,
+                                      kTabLabels[t], kColorBlack, kPageAccent[t], Font_11x18);
         } else {
-            DisplayRenderer::DrawText(tx + 26, layout::TAB_TEXT_Y,
-                                      kTabLabels[t],
-                                      kPageAccent[t], kColorBlack, Font_7x10);
+            DisplayRenderer::DrawText(tx + layout::TAB_TEXT_X_OFF, layout::TAB_TEXT_Y,
+                                      kTabLabels[t], kPageAccent[t], kColorBlack, Font_11x18);
         }
     }
 
-    // ── Header: active mode name (y=20..39) ──────────────────────────────────
+    // ── Mode name ──────────────────────────────────────────────────────────────
     const char* mode_name = (active_page == 0) ? ModModeName(mod_mode) :
                             (active_page == 1) ? DelayModeName(delay_mode) :
-                            ReverbModeName(reverb_mode);
+                                                 ReverbModeName(reverb_mode);
     DisplayRenderer::DrawText(layout::MODE_X, layout::MODE_Y,
-                              mode_name, accent, kColorBlack, Font_7x10);
+                              mode_name, accent, kColorBlack, Font_11x18);
 
-    // Preset slot label "P1".."P8"
+    // Preset slot "P1".."P8"
     char slot_buf[3] = { 'P', static_cast<char>('1' + (preset_slot % 8)), 0 };
     DisplayRenderer::DrawText(layout::SLOT_X, layout::SLOT_Y,
-                              slot_buf, kColorWhite, kColorBlack, Font_6x8);
+                              slot_buf, kColorWhite, kColorBlack, Font_7x10);
 
-    // ── Separator lines ───────────────────────────────────────────────────────
+    // ── Separator lines ────────────────────────────────────────────────────────
     DisplayRenderer::HLine(0, layout::SEP1_Y, layout::SCREEN_W, kColorWhite);
     DisplayRenderer::HLine(0, layout::SEP2_Y, layout::SCREEN_W, kColorWhite);
     DisplayRenderer::HLine(0, layout::SEP3_Y, layout::SCREEN_W, kColorWhite);
 
-    // ── Parameter rows ────────────────────────────────────────────────────────
-    static const char* kModLabels[7]   = { "SPEED", "DEPTH", "MIX",
-                                           "TONE",  "P1",    "P2",    "LEVEL" };
+    // ── Parameter label arrays ─────────────────────────────────────────────────
+    static const char* kModLabels[7]   = { "SPEED", "DEPTH", "MIX", "TONE",
+                                           "P1",    "P2",    "LEVEL" };
     static const char* kDelayLabels[7] = { "TIME",  "REPEATS", "MIX",
                                            "FILTER","GRIT","MOD SPD","MOD DEP" };
     static const char* kReverbLabels[7]= { "DECAY", "PRE DLY", "MIX",
                                            "TONE",  "MOD", "PARAM1", "PARAM2" };
 
-    const char** labels = (active_page == 0) ? kModLabels :
-                          (active_page == 1) ? kDelayLabels : kReverbLabels;
+    // Per-mode overrides for MOD P1/P2 labels
+    struct ModAlgoDesc { const char* p1; const char* p2; };
+    static const ModAlgoDesc kModAlgoDesc[NUM_MOD_MODES] = {
+        {"DELAY",  "TYPE"},    // Chorus
+        {"REGEN",  "TYPE"},    // Flanger
+        {"DRIVE",  "SPEED"},   // Rotary
+        {"REGEN",  "P2"},      // Vibe
+        {"REGEN",  "STAGES"},  // Phaser
+        {"P1",     "TYPE"},    // VintTrem
+    };
 
-    // Compute bar fill values (normalized [0,1])
+    // Apply per-mode overrides for MOD page
+    const char* mod_labels[7];
+    for (int i = 0; i < 7; ++i) mod_labels[i] = kModLabels[i];
+    if (active_page == 0) {
+        const int mi = static_cast<int>(mod_mode);
+        if (mi >= 0 && mi < NUM_MOD_MODES) {
+            mod_labels[4] = kModAlgoDesc[mi].p1;
+            mod_labels[5] = kModAlgoDesc[mi].p2;
+        }
+    }
+
+    // Apply AlgoParamDescriptor overrides for REVERB page
+    const char* reverb_labels[7];
+    for (int i = 0; i < 7; ++i) reverb_labels[i] = kReverbLabels[i];
+    if (active_page == 2) {
+        const auto& desc = reverb_fx::get_algo_param_descriptor(reverb_mode);
+        if (desc.param1_name[0] != '\0') reverb_labels[5] = desc.param1_name;
+        if (desc.param2_name[0] != '\0') reverb_labels[6] = desc.param2_name;
+    }
+
+    const char** labels = (active_page == 0) ? mod_labels :
+                          (active_page == 1) ? kDelayLabels : reverb_labels;
+
+    // ── Bar values (normalized [0,1]) ──────────────────────────────────────────
     float bar[7];
     if (active_page == 0) {
         using namespace mod_fx;
@@ -145,18 +197,35 @@ void DisplayManager::Render(int           active_page,
         bar[6] = unmap_param(reverb_params.param2,    get_param_range(reverb_mode, ParamId::Param2));
     }
 
-    for (int i = 0; i < 7; ++i) {
+    // ── 4 parameter rows ───────────────────────────────────────────────────────
+    // Primary (shift=false): draw params 0-3
+    // Shift   (shift=true):  draw params 4-6 in rows 0-2; row 3 blank
+    const int base_idx = shift ? 4 : 0;
+    const int count    = shift ? 3 : 4;
+
+    for (int row = 0; row < count; ++row) {
+        const int param_idx = base_idx + row;
         const uint16_t row_y = static_cast<uint16_t>(
-            layout::PARAM_AREA_Y + static_cast<uint16_t>(i) * layout::PARAM_ROW_H);
+            layout::PARAM_AREA_Y + row * layout::PARAM_ROW_H);
 
         DisplayRenderer::DrawText(layout::LABEL_X,
                                   row_y + layout::LABEL_OFFSET_Y,
-                                  labels[i], kColorWhite, kColorBlack, Font_6x8);
+                                  labels[param_idx], kColorWhite, kColorBlack, Font_11x18);
 
-        DisplayRenderer::DrawBar(layout::BAR_X,
-                                 row_y + layout::BAR_OFFSET_Y,
-                                 layout::BAR_W, layout::BAR_H,
-                                 bar[i], accent);
+        // Enum or bar?
+        const char* enum_str = (active_page == 0)
+                                ? GetModEnumLabel(mod_mode, param_idx, bar[param_idx])
+                                : nullptr;
+        if (enum_str) {
+            DisplayRenderer::DrawText(layout::BAR_X,
+                                      row_y + layout::BAR_OFFSET_Y,
+                                      enum_str, accent, kColorBlack, Font_11x18);
+        } else {
+            DisplayRenderer::DrawBar(layout::BAR_X,
+                                     row_y + layout::BAR_OFFSET_Y,
+                                     layout::BAR_W, layout::BAR_H,
+                                     bar[param_idx], accent);
+        }
     }
 
     // ── Status row ────────────────────────────────────────────────────────────
@@ -175,7 +244,7 @@ void DisplayManager::Render(int           active_page,
                                   "ERR", 0xF800, kColorBlack, Font_6x8);
     }
 
-    // ── Chain strip (y=281..319) ──────────────────────────────────────────────
+    // ── Chain strip (y=292..319) ──────────────────────────────────────────────
     // Three sections: [MOD: <name>] > [DLY: <name>] > [REV: <name>]
     // Disabled sections render in kColorDim with a strikethrough across the name.
     static const char* kChainTags[3] = { "MOD", "DLY", "REV" };
