@@ -18,6 +18,7 @@ public:
     void Init();
 
     void Update(int           active_page,
+                bool          shift,
                 ModModeId     mod_mode,
                 DelayModeId   delay_mode,
                 ReverbModeId  reverb_mode,
@@ -34,6 +35,7 @@ private:
     St7789Driver driver_;
 
     void Render(int           active_page,
+                bool          shift,
                 ModModeId     mod_mode,
                 DelayModeId   delay_mode,
                 ReverbModeId  reverb_mode,

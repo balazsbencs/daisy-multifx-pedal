@@ -24,6 +24,7 @@ void DisplayManager::Init() {
 // ── Update ───────────────────────────────────────────────────────────────────
 
 void DisplayManager::Update(int           active_page,
+                            bool          shift,
                             ModModeId     mod_mode,
                             DelayModeId   delay_mode,
                             ReverbModeId  reverb_mode,
@@ -36,9 +37,10 @@ void DisplayManager::Update(int           active_page,
                             PresetUiEvent preset_event,
                             uint32_t      now_ms) {
     (void)now_ms;
+    (void)shift;
     if (driver_.IsBusy()) return;
 
-    Render(active_page, mod_mode, delay_mode, reverb_mode,
+    Render(active_page, shift, mod_mode, delay_mode, reverb_mode,
            mod_params, delay_params, reverb_params,
            fx_enabled, hold_active, preset_slot, preset_event);
 
@@ -50,6 +52,7 @@ void DisplayManager::Update(int           active_page,
 // ── Render ───────────────────────────────────────────────────────────────────
 
 void DisplayManager::Render(int           active_page,
+                            bool          shift,
                             ModModeId     mod_mode,
                             DelayModeId   delay_mode,
                             ReverbModeId  reverb_mode,
@@ -60,6 +63,7 @@ void DisplayManager::Render(int           active_page,
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event) {
+    (void)shift;
     const uint16_t accent = kPageAccent[active_page];
 
     DisplayRenderer::Clear(kColorBlack);

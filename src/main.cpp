@@ -170,6 +170,7 @@ int main() {
     hw.StartAudio(AudioEngine::AudioCallback);
 
     uint32_t display_last_ms = 0;
+    static bool mode_hold_consumed = false;
 
     while (true) {
         const uint32_t now = System::GetNow();
@@ -186,7 +187,10 @@ int main() {
 
         // ── Page switching (mode encoder button) ─────────────────────────────
         if (ctrl.mode_encoder_pressed) {
-            active_page = (active_page + 1) % 3;
+            if (!mode_hold_consumed) {
+                active_page = (active_page + 1) % 3;
+            }
+            mode_hold_consumed = false;
         }
 
         // ── Mode selection within active page (mode encoder rotation) ─────────
@@ -223,6 +227,9 @@ int main() {
         for (int p = 0; p < 4; ++p) {
             const int delta = ctrl.param_encoder_increment[p];
             if (!delta) continue;
+            if (shift && delta != 0) {
+                mode_hold_consumed = true;
+            }
             const int param_idx = shift ? (p + 4) : p;
             if (param_idx < NUM_PARAMS) {
                 ApplyEncoderEdit(active_norm[param_idx], delta, now,
@@ -279,7 +286,7 @@ int main() {
         // ── Display ────────────────────────────────────────────────────────────
         if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
             display_last_ms = now;
-            display.Update(active_page,
+            display.Update(active_page, shift,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
                            fx_enabled, hold_active, preset_slot,
