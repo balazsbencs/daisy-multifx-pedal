@@ -170,7 +170,10 @@ int main() {
     hw.StartAudio(AudioEngine::AudioCallback);
 
     uint32_t display_last_ms = 0;
-    static bool mode_hold_consumed = false;
+    static bool     mode_hold_consumed  = false;
+    static bool     mode_hold_active    = false;
+    static uint32_t mode_hold_start_ms  = 0;
+    constexpr uint32_t kModeHoldThreshMs = 250;
 
     while (true) {
         const uint32_t now = System::GetNow();
@@ -185,9 +188,19 @@ int main() {
             }
         }
 
+        // ── Mode encoder hold tracking ───────────────────────────────────────
+        if (ctrl.mode_encoder_held && !mode_hold_active) {
+            mode_hold_start_ms = now;
+            mode_hold_active   = true;
+        }
+        if (!ctrl.mode_encoder_held) {
+            mode_hold_active = false;
+        }
+
         // ── Page switching (mode encoder button) ─────────────────────────────
         if (ctrl.mode_encoder_pressed) {
-            if (!mode_hold_consumed) {
+            const bool long_hold = (now - mode_hold_start_ms) >= kModeHoldThreshMs;
+            if (!mode_hold_consumed && !long_hold) {
                 active_page = (active_page + 1) % 3;
             }
             mode_hold_consumed = false;
