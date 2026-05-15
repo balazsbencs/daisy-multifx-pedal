@@ -240,7 +240,7 @@ int main() {
         for (int p = 0; p < 4; ++p) {
             const int delta = ctrl.param_encoder_increment[p];
             if (!delta) continue;
-            if (shift && delta != 0) {
+            if (shift) {
                 mode_hold_consumed = true;
             }
             const int param_idx = shift ? (p + 4) : p;
