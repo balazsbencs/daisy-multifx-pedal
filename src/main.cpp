@@ -48,7 +48,7 @@ static ReverbModeId cur_reverb = ReverbModeId::Hall;
 
 static bool hold_active   = false;
 static int  preset_slot   = 0;
-static bool fx_enabled[3] = {false, false, false}; // 0=mod,1=delay,2=reverb — off by default
+static bool fx_enabled[3] = {true, false, false}; // 0=mod,1=delay,2=reverb — off by default
 
 // Status LEDs (one per effect footswitch)
 static daisy::GPIO led_fx[3];
