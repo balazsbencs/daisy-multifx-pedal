@@ -64,7 +64,6 @@ void DisplayManager::Update(int           active_page,
                             PresetUiEvent preset_event,
                             uint32_t      now_ms) {
     (void)now_ms;
-    (void)shift;
     if (driver_.IsBusy()) return;
 
     Render(active_page, shift, mod_mode, delay_mode, reverb_mode,
@@ -203,7 +202,8 @@ void DisplayManager::Render(int           active_page,
     const int base_idx = shift ? 4 : 0;
     const int count    = shift ? 3 : 4;
 
-    for (int row = 0; row < count; ++row) {
+    for (int row = 0; row < 4; ++row) {
+        if (row >= count) continue;   // row left blank (black background)
         const int param_idx = base_idx + row;
         const uint16_t row_y = static_cast<uint16_t>(
             layout::PARAM_AREA_Y + row * layout::PARAM_ROW_H);
