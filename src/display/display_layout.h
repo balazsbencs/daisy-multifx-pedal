@@ -38,7 +38,7 @@ constexpr uint16_t BAR_X           = 88;
 constexpr uint16_t BAR_W           = 148;
 
 // ── Status row (y=280..291, h=12) ─────────────────────────────────────────────
-constexpr uint16_t STATUS_Y       = 284;
+constexpr uint16_t STATUS_Y       = 282;
 constexpr uint16_t HOLD_X         = 4;
 constexpr uint16_t PRESET_EVT_X   = 174;
 

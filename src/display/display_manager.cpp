@@ -14,7 +14,7 @@ static constexpr uint16_t kPageAccent[3] = { 0x07FF, 0xFD20, 0x001F };
 
 // Returns display string for discrete-select MOD params, nullptr for continuous.
 static const char* GetModEnumLabel(ModModeId mode, int param_idx, float norm) {
-    if (param_idx != 5) return nullptr;  // only P2 is enum in the 6 mod modes
+    if (param_idx != static_cast<int>(mod_fx::ParamId::P2)) return nullptr;  // only P2 is enum in the 6 mod modes
     switch (mode) {
         case ModModeId::Phaser: {
             static const char* k[] = {"2 ST","4 ST","6 ST","8 ST","12 ST","16 ST","BARBER"};
@@ -89,6 +89,7 @@ void DisplayManager::Render(int           active_page,
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event) {
+    if (active_page < 0 || active_page > 2) return;
     const uint16_t accent = kPageAccent[active_page];
     DisplayRenderer::Clear(kColorBlack);
 
@@ -231,7 +232,7 @@ void DisplayManager::Render(int           active_page,
     // ── Status row ────────────────────────────────────────────────────────────
     if (hold_active) {
         DisplayRenderer::DrawText(layout::HOLD_X, layout::STATUS_Y,
-                                  "HOLD", 0xF800, kColorBlack, Font_6x8);
+                                  "HOLD", kColorRed, kColorBlack, Font_6x8);
     }
     if (preset_event == PresetUiEvent::Saved) {
         DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::STATUS_Y,
@@ -241,7 +242,7 @@ void DisplayManager::Render(int           active_page,
                                   "LOAD", kColorWhite, kColorBlack, Font_6x8);
     } else if (preset_event == PresetUiEvent::Error) {
         DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::STATUS_Y,
-                                  "ERR", 0xF800, kColorBlack, Font_6x8);
+                                  "ERR", kColorRed, kColorBlack, Font_6x8);
     }
 
     // ── Chain strip (y=292..319) ──────────────────────────────────────────────
