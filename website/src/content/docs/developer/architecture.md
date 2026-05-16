@@ -13,7 +13,7 @@ Three effect stages are chained mono-in / stereo-out:
 
 ```
 IN → [MOD stage] → [DELAY stage] → [REVERB stage] → OUT
-       6 modes         4 modes          4 modes
+       6 modes        10 modes         9 modes
 ```
 
 Each stage has:
