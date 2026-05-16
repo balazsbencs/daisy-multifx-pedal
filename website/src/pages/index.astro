@@ -26,6 +26,22 @@ const b = base.endsWith('/') ? base : base + '/';
       -webkit-font-smoothing: antialiased;
     }
 
+    /* ── Skip to content ── */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      z-index: 100;
+      padding: 0.5rem 1rem;
+      background: #00e5ff;
+      color: #050505;
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: top 0.15s;
+    }
+    .skip-link:focus { top: 0; }
+
     /* ── Navbar ── */
     .site-nav {
       position: sticky;
@@ -59,8 +75,8 @@ const b = base.endsWith('/') ? base : base + '/';
       transition: color 0.15s;
     }
     .nav-links a:hover { color: #fff; }
-    .nav-links .ext { color: rgba(255,255,255,0.3); font-size: 0.8rem; }
-    .nav-links .ext:hover { color: rgba(255,255,255,0.6); }
+    .nav-links .ext { color: rgba(255,255,255,0.55); font-size: 0.8rem; }
+    .nav-links .ext:hover { color: rgba(255,255,255,0.8); }
 
     /* ── Hero ── */
     .hero {
@@ -108,7 +124,7 @@ const b = base.endsWith('/') ? base : base + '/';
     .hero-title .accent { color: #00e5ff; }
     .hero-subtitle {
       font-size: 1.1rem;
-      color: rgba(255,255,255,0.42);
+      color: rgba(255,255,255,0.55);
       max-width: 500px;
       line-height: 1.7;
       margin-bottom: 2.25rem;
@@ -206,11 +222,12 @@ const b = base.endsWith('/') ? base : base + '/';
       font-size: 0.77rem;
       color: rgba(255,255,255,0.22);
     }
-    .site-footer a { color: rgba(0,229,255,0.45); text-decoration: none; }
+    .site-footer a { color: rgba(0,229,255,0.65); text-decoration: none; }
     .site-footer a:hover { color: #00e5ff; }
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
 
   <nav class="site-nav">
     <a href={b} class="nav-logo">MULTI&#8209;FX</a>
@@ -224,7 +241,7 @@ const b = base.endsWith('/') ? base : base + '/';
     </div>
   </nav>
 
-  <main>
+  <main id="main-content">
     <section class="hero">
       <div class="hero-badge">DAISY SEED · STM32H750 · AK4556</div>
       <h1 class="hero-title">Multi&#8209;<span class="accent">FX</span></h1>
