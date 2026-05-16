@@ -29,6 +29,7 @@ void VibeMode::Init() {
 
 void VibeMode::Reset() {
     lfo_.Init(1.0f, LfoWave::Sine);
+    lfo_.SetJitter(0.15f);
     for (auto& s : stages_) s.Reset();
     dc_.Init();
     tone_.Init(); // initialises to flat (knob = 0.5)
