@@ -1,0 +1,278 @@
+---
+const base = import.meta.env.BASE_URL;
+const b = base.endsWith('/') ? base : base + '/';
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-FX — Daisy Seed Effects Pedal</title>
+  <meta name="description" content="A stereo-out stompbox built on Daisy Seed. Modulation, Delay, and Reverb in series. 14 algorithms, full MIDI control." />
+  <link rel="icon" type="image/svg+xml" href={`${b}favicon.svg`} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #050505;
+      color: rgba(255,255,255,0.87);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Navbar ── */
+    .site-nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(9,9,11,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,229,255,0.18);
+    }
+    .nav-logo {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      color: #00e5ff;
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      margin-left: auto;
+      align-items: center;
+    }
+    .nav-links a {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-links .ext { color: rgba(255,255,255,0.3); font-size: 0.8rem; }
+    .nav-links .ext:hover { color: rgba(255,255,255,0.6); }
+
+    /* ── Hero ── */
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 5rem 2rem 3.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -5%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 320px;
+      background: radial-gradient(ellipse, rgba(0,229,255,0.055) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: #00e5ff;
+      border: 1px solid rgba(0,229,255,0.3);
+      background: rgba(0,229,255,0.08);
+      border-radius: 100px;
+      padding: 0.28rem 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .hero-title {
+      font-size: clamp(3rem, 9vw, 6rem);
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 1.25rem;
+    }
+    .hero-title .accent { color: #00e5ff; }
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.42);
+      max-width: 500px;
+      line-height: 1.7;
+      margin-bottom: 2.25rem;
+    }
+    .hero-ctas {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2.75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn-primary {
+      background: #00e5ff;
+      color: #050505;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.72rem 1.7rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: opacity 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-ghost {
+      border: 1px solid rgba(0,229,255,0.4);
+      color: #00e5ff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.72rem 1.7rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-ghost:hover { background: rgba(0,229,255,0.08); }
+
+    .signal-chain {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .stage {
+      padding: 0.38rem 1rem;
+      border-radius: 5px;
+      border: 1px solid;
+      letter-spacing: 0.06em;
+    }
+    .stage-mod { background: rgba(0,229,255,0.1);   border-color: rgba(0,229,255,0.35);   color: #00e5ff; }
+    .stage-dly { background: rgba(255,140,0,0.1);   border-color: rgba(255,140,0,0.35);   color: #ff8c00; }
+    .stage-rev { background: rgba(99,153,255,0.1);  border-color: rgba(99,153,255,0.35);  color: #6399ff; }
+    .chain-arrow { color: rgba(255,255,255,0.22); font-size: 1rem; }
+
+    /* ── Quick links ── */
+    .quick-links {
+      padding: 2.5rem 2rem 5rem;
+      max-width: 860px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .ql-label {
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.22);
+      margin-bottom: 1.25rem;
+    }
+    .ql-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 0.75rem;
+    }
+    .ql-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 1.1rem 1.2rem;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .ql-card:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.13);
+    }
+    .ql-title { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 0.3rem; }
+    .ql-desc  { font-size: 0.77rem; color: rgba(255,255,255,0.32); line-height: 1.45; }
+
+    /* ── Footer ── */
+    .site-footer {
+      text-align: center;
+      padding: 1.5rem 2rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.77rem;
+      color: rgba(255,255,255,0.22);
+    }
+    .site-footer a { color: rgba(0,229,255,0.45); text-decoration: none; }
+    .site-footer a:hover { color: #00e5ff; }
+  </style>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <a href={b} class="nav-logo">MULTI&#8209;FX</a>
+    <div class="nav-links">
+      <a href={`${b}user-manual/introduction/`}>User Manual</a>
+      <a href={`${b}developer/architecture/`}>Developer</a>
+      <a href={`${b}hardware/pin-map/`}>Hardware</a>
+      <a href="https://github.com/balazsbencs/daisy-multifx-pedal" class="ext" target="_blank" rel="noopener">
+        GitHub ↗
+      </a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-badge">DAISY SEED · STM32H750 · AK4556</div>
+      <h1 class="hero-title">Multi&#8209;<span class="accent">FX</span></h1>
+      <p class="hero-subtitle">
+        A stereo-out stompbox built on the Daisy Seed.
+        Three chained effect stages, 14 algorithms, 7 parameters each, and full MIDI control.
+      </p>
+      <div class="hero-ctas">
+        <a href={`${b}user-manual/introduction/`} class="btn-primary">User Manual →</a>
+        <a href={`${b}developer/architecture/`}   class="btn-ghost">Developer Docs</a>
+      </div>
+      <div class="signal-chain">
+        <span class="stage stage-mod">MOD · 6</span>
+        <span class="chain-arrow">→</span>
+        <span class="stage stage-dly">DLY · 4</span>
+        <span class="chain-arrow">→</span>
+        <span class="stage stage-rev">REV · 4</span>
+      </div>
+    </section>
+
+    <div class="quick-links">
+      <div class="ql-label">Jump to</div>
+      <div class="ql-grid">
+        <a href={`${b}user-manual/front-panel/`} class="ql-card">
+          <div class="ql-title">Front Panel</div>
+          <div class="ql-desc">Encoders, footswitches, LEDs, display layout</div>
+        </a>
+        <a href={`${b}user-manual/effect-modes/`} class="ql-card">
+          <div class="ql-title">Effect Modes</div>
+          <div class="ql-desc">14 algorithms across 3 stages</div>
+        </a>
+        <a href={`${b}user-manual/midi/`} class="ql-card">
+          <div class="ql-title">MIDI Reference</div>
+          <div class="ql-desc">CC map, clock sync, realtime messages</div>
+        </a>
+        <a href={`${b}developer/architecture/`} class="ql-card">
+          <div class="ql-title">Architecture</div>
+          <div class="ql-desc">Signal chain, DSP pipeline, concurrency model</div>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    MIT License ·
+    <a href="https://github.com/balazsbencs/daisy-multifx-pedal" target="_blank" rel="noopener">GitHub</a>
+    · Built on <a href="https://electro-smith.com/products/daisy-seed" target="_blank" rel="noopener">Daisy Seed</a>
+  </footer>
+
+</body>
+</html>
