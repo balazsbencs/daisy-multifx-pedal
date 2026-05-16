@@ -33,9 +33,9 @@ inline float WaveShaper::Process(float x) const {
             return driven / (1.0f + abs_d);
         }
         case WaveCurve::Tube: {
-            // Small positive bias before cubic -> asymmetric clipping -> 2nd harmonic.
+            // Bias before drive so asymmetric clipping (-> 2nd harmonic) persists at all drive levels.
             // DC offset is removed by each mode's DcBlocker.
-            driven += 0.1f;
+            driven = (x + 0.1f) * drive_;
             if (driven >  1.0f) driven =  1.0f;
             if (driven < -1.0f) driven = -1.0f;
             return driven * (3.0f - driven * driven) * (1.0f / 3.0f);
