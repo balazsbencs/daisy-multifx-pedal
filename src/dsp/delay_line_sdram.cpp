@@ -12,7 +12,7 @@ void DelayLineSdram::Init(float* buf, size_t size) {
 void DelayLineSdram::Reset() {
     if (buf_) std::memset(buf_, 0, size_ * sizeof(float));
     write_ = 0;
-    delay_ = 1;
+    delay_ = 2;
     frac_  = 0.0f;
 }
 
@@ -30,6 +30,7 @@ void DelayLineSdram::Write(float sample) {
     write_ = (write_ == 0) ? size_ - 1 : write_ - 1;
 }
 
+// Requires base + offset < 2 * size (guaranteed by SetDelay/ReadAt clamps).
 static inline size_t wrap_idx(size_t base, size_t offset, size_t size) {
     size_t i = base + offset;
     if (i >= size) i -= size;
@@ -54,7 +55,6 @@ float DelayLineSdram::ReadAt(float delay_samples) const {
     if (delay_samples < 2.0f) delay_samples = 2.0f;
     size_t int_part = static_cast<size_t>(delay_samples);
     const float t   = delay_samples - static_cast<float>(int_part);
-    if (int_part < 2)          int_part = 2;
     if (int_part > size_ - 3)  int_part = size_ - 3;
     const float xm1 = buf_[wrap_idx(write_, int_part - 1, size_)];
     const float x0  = buf_[wrap_idx(write_, int_part,     size_)];

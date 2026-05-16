@@ -13,7 +13,7 @@ public:
     void Init(float* buf, size_t size);
     void Reset();
 
-    void  SetDelay(float delay_samples); // fractional, linear interp
+    void  SetDelay(float delay_samples); // fractional delay; Hermite cubic interpolation
     void  Write(float sample);
     float Read() const;
     float ReadAt(float delay_samples) const; // read arbitrary tap
