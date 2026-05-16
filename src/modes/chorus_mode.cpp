@@ -18,6 +18,7 @@ void ChorusMode::Init() {
     s_chorus_line.Init(s_chorus_buf, kChorusBufSize);
     for (int i = 0; i < 3; ++i) {
         lfo_[i].Init(0.5f, LfoWave::Sine);
+        lfo_[i].SetJitter(0.3f);
         lfo_[i].SetPhaseOffset(static_cast<float>(i) * PI_2_3);
         lfo_[i].Reset();  // apply offset to phase_ (SetPhaseOffset alone does not)
     }
