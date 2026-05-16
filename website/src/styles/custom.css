@@ -1,1 +1,97 @@
-/* placeholder — will be replaced in Task 2 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Override both themes — we only support dark ── */
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  --sl-font: 'Inter', sans-serif;
+
+  /* Accent — cyan (MOD color) */
+  --sl-color-accent-low:  rgba(0, 229, 255, 0.12);
+  --sl-color-accent:      #00e5ff;
+  --sl-color-accent-high: #00b8cc;
+
+  /* Backgrounds */
+  --sl-color-bg:          #050505;
+  --sl-color-bg-sidebar:  #0d0d12;
+  --sl-color-bg-nav:      rgba(9, 9, 11, 0.92);
+
+  /* Text scale */
+  --sl-color-white:       rgba(255, 255, 255, 0.87);
+  --sl-color-gray-1:      rgba(255, 255, 255, 0.70);
+  --sl-color-gray-2:      rgba(255, 255, 255, 0.55);
+  --sl-color-gray-3:      rgba(255, 255, 255, 0.38);
+  --sl-color-gray-4:      rgba(255, 255, 255, 0.22);
+  --sl-color-gray-5:      rgba(255, 255, 255, 0.12);
+  --sl-color-gray-6:      rgba(255, 255, 255, 0.07);
+  --sl-color-gray-7:      rgba(255, 255, 255, 0.03);
+  --sl-color-black:       #050505;
+
+  /* Borders */
+  --sl-color-hairline:    rgba(255, 255, 255, 0.07);
+  --sl-color-hairline-light: rgba(255, 255, 255, 0.04);
+
+  /* Stage-specific accent vars used in content */
+  --color-mod: #00e5ff;
+  --color-dly: #ff8c00;
+  --color-rev: #6399ff;
+}
+
+/* ── Nav: glow border + glass blur ── */
+header.header {
+  border-bottom: 1px solid rgba(0, 229, 255, 0.18) !important;
+  backdrop-filter: blur(12px);
+  background: rgba(9, 9, 11, 0.92) !important;
+}
+
+/* ── Sidebar border ── */
+.sidebar-pane {
+  border-inline-end-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── Active sidebar item ── */
+a[aria-current='page'],
+a[aria-current='page']:hover {
+  color: var(--color-mod) !important;
+  background: rgba(0, 229, 255, 0.08) !important;
+}
+
+/* ── Theme toggle — dark only, hide it ── */
+starlight-theme-select {
+  display: none;
+}
+
+/* ── Code blocks ── */
+.expressive-code .frame {
+  background: #0d0d12 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── Prose links ── */
+.sl-markdown-content a {
+  color: var(--color-mod);
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(0, 229, 255, 0.35);
+}
+.sl-markdown-content a:hover {
+  text-decoration-color: rgba(0, 229, 255, 0.7);
+}
+
+/* ── Tables ── */
+.sl-markdown-content table {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.sl-markdown-content th {
+  background: rgba(0, 229, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+.sl-markdown-content td {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Aside / callout blocks ── */
+.starlight-aside {
+  border-inline-start-color: var(--color-mod) !important;
+  background: rgba(0, 229, 255, 0.05) !important;
+}
