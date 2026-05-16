@@ -17,10 +17,11 @@ void DelayLineSdram::Reset() {
 }
 
 void DelayLineSdram::SetDelay(float delay_samples) {
+    if (delay_samples < 2.0f) delay_samples = 2.0f;
     size_t int_part = static_cast<size_t>(delay_samples);
     frac_  = delay_samples - static_cast<float>(int_part);
-    if (int_part < 1)     int_part = 1;          // guard zero-latency read
-    if (int_part >= size_) int_part = size_ - 1;
+    if (int_part < 2)          int_part = 2;
+    if (int_part > size_ - 3)  int_part = size_ - 3;
     delay_ = int_part;
 }
 
@@ -29,29 +30,41 @@ void DelayLineSdram::Write(float sample) {
     write_ = (write_ == 0) ? size_ - 1 : write_ - 1;
 }
 
+static inline size_t wrap_idx(size_t base, size_t offset, size_t size) {
+    size_t i = base + offset;
+    if (i >= size) i -= size;
+    return i;
+}
+
 float DelayLineSdram::Read() const {
-    // write_ < size_ and delay_ < size_, so sums fit in [0, 2*size_-1]:
-    // one conditional subtract avoids integer division in the audio ISR.
-    size_t a_idx = write_ + delay_;
-    if (a_idx >= size_) a_idx -= size_;
-    size_t b_idx = a_idx + 1;
-    if (b_idx >= size_) b_idx -= size_;
-    float a = buf_[a_idx];
-    float b = buf_[b_idx];
-    return a + (b - a) * frac_;
+    const size_t d  = delay_;  // clamped to [2, size_-3] by SetDelay
+    const float  t  = frac_;
+    const float xm1 = buf_[wrap_idx(write_, d - 1, size_)];
+    const float x0  = buf_[wrap_idx(write_, d,     size_)];
+    const float x1  = buf_[wrap_idx(write_, d + 1, size_)];
+    const float x2  = buf_[wrap_idx(write_, d + 2, size_)];
+    const float c0  = x0;
+    const float c1  = 0.5f * (x1 - xm1);
+    const float c2  = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+    const float c3  = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
+    return ((c3 * t + c2) * t + c1) * t + c0;
 }
 
 float DelayLineSdram::ReadAt(float delay_samples) const {
+    if (delay_samples < 2.0f) delay_samples = 2.0f;
     size_t int_part = static_cast<size_t>(delay_samples);
-    float  frac     = delay_samples - static_cast<float>(int_part);
-    if (int_part >= size_) int_part = size_ - 1;
-    size_t a_idx = write_ + int_part;
-    if (a_idx >= size_) a_idx -= size_;
-    size_t b_idx = a_idx + 1;
-    if (b_idx >= size_) b_idx -= size_;
-    float a = buf_[a_idx];
-    float b = buf_[b_idx];
-    return a + (b - a) * frac;
+    const float t   = delay_samples - static_cast<float>(int_part);
+    if (int_part < 2)          int_part = 2;
+    if (int_part > size_ - 3)  int_part = size_ - 3;
+    const float xm1 = buf_[wrap_idx(write_, int_part - 1, size_)];
+    const float x0  = buf_[wrap_idx(write_, int_part,     size_)];
+    const float x1  = buf_[wrap_idx(write_, int_part + 1, size_)];
+    const float x2  = buf_[wrap_idx(write_, int_part + 2, size_)];
+    const float c0  = x0;
+    const float c1  = 0.5f * (x1 - xm1);
+    const float c2  = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+    const float c3  = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
+    return ((c3 * t + c2) * t + c1) * t + c0;
 }
 
 } // namespace pedal
