@@ -22,7 +22,7 @@ private:
     float*  buf_   = nullptr;
     size_t  size_  = 0;
     size_t  write_ = 0;
-    size_t  delay_ = 1;
+    size_t  delay_ = 2;
     float   frac_  = 0.0f;
 };
 
