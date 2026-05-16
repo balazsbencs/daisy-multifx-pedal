@@ -4,6 +4,7 @@ namespace pedal {
 
 static constexpr float TWO_PI    = 6.28318530717958647692f;
 static constexpr float PI        = 3.14159265358979323846f;
+// Per-sample soft-start coefficient: tau ≈ 50 ms. In PrepareBlock(), multiply by BLOCK_SIZE.
 static constexpr float RAMP_COEFF = 1.0f / (0.05f * SAMPLE_RATE);
 
 void Lfo::Init(float rate_hz, LfoWave wave) {
@@ -16,11 +17,11 @@ void Lfo::Init(float rate_hz, LfoWave wave) {
     jitter_       = 0.0f;
     wave_         = wave;
     SetRate(rate_hz);
+    phase_inc_ = phase_inc_base_;
 }
 
 void Lfo::SetRate(float rate_hz) {
     phase_inc_base_ = TWO_PI * rate_hz * INV_SAMPLE_RATE;
-    phase_inc_      = phase_inc_base_;
     slew_coeff_     = 4.0f * rate_hz * INV_SAMPLE_RATE;
     if (slew_coeff_ > 1.0f) slew_coeff_ = 1.0f;
 }
@@ -70,6 +71,8 @@ float Lfo::Process() {
             rand_         = lcg_next(rand_);
             const float j = lcg_to_float(rand_) * jitter_ * 0.05f;
             phase_inc_    = phase_inc_base_ * (1.0f + j);
+        } else {
+            phase_inc_    = phase_inc_base_;
         }
     }
     while (phase_ < 0.0f) { phase_ += TWO_PI; }
@@ -86,7 +89,7 @@ float Lfo::PrepareBlock() {
     } else {
         out = lfo_compute(phase_, wave_);
     }
-    amplitude_ += RAMP_COEFF * (1.0f - amplitude_);
+    amplitude_ += (RAMP_COEFF * static_cast<float>(BLOCK_SIZE)) * (1.0f - amplitude_);
     out *= amplitude_;
 
     phase_ += phase_inc_ * static_cast<float>(BLOCK_SIZE);
@@ -98,6 +101,8 @@ float Lfo::PrepareBlock() {
             rand_         = lcg_next(rand_);
             const float j = lcg_to_float(rand_) * jitter_ * 0.05f;
             phase_inc_    = phase_inc_base_ * (1.0f + j);
+        } else {
+            phase_inc_    = phase_inc_base_;
         }
     }
     while (phase_ < 0.0f) { phase_ += TWO_PI; }
