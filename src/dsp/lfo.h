@@ -18,7 +18,7 @@ enum class LfoWave {
 class Lfo {
 public:
     void Init(float rate_hz = 1.0f, LfoWave wave = LfoWave::Sine);
-    void Reset() { phase_ = phase_offset_; amplitude_ = 0.0f; smooth_value_ = 0.0f; sh_value_ = 0.0f; }
+    void Reset() { phase_ = phase_offset_; amplitude_ = 0.0f; smooth_value_ = 0.0f; sh_value_ = 0.0f; rand_ = 12345; phase_inc_ = phase_inc_base_; }
     void SetRate(float rate_hz);
     void SetWave(LfoWave wave) { wave_ = wave; }
     void SetJitter(float amount) { jitter_ = amount; }
