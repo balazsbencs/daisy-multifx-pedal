@@ -2,20 +2,27 @@
 
 namespace pedal {
 
-static constexpr float TWO_PI = 6.28318530717958647692f;
-static constexpr float PI     = 3.14159265358979323846f;
+static constexpr float TWO_PI    = 6.28318530717958647692f;
+static constexpr float PI        = 3.14159265358979323846f;
+static constexpr float RAMP_COEFF = 1.0f / (0.05f * SAMPLE_RATE);
 
 void Lfo::Init(float rate_hz, LfoWave wave) {
     phase_        = 0.0f;
     phase_offset_ = 0.0f;
+    amplitude_    = 0.0f;
     sh_value_     = 0.0f;
+    smooth_value_ = 0.0f;
     rand_         = 12345;
+    jitter_       = 0.0f;
     wave_         = wave;
     SetRate(rate_hz);
 }
 
 void Lfo::SetRate(float rate_hz) {
-    phase_inc_ = TWO_PI * rate_hz * INV_SAMPLE_RATE;
+    phase_inc_base_ = TWO_PI * rate_hz * INV_SAMPLE_RATE;
+    phase_inc_      = phase_inc_base_;
+    slew_coeff_     = 4.0f * rate_hz * INV_SAMPLE_RATE;
+    if (slew_coeff_ > 1.0f) slew_coeff_ = 1.0f;
 }
 
 static float lfo_compute(float phase, LfoWave wave) {
@@ -45,22 +52,27 @@ float Lfo::Process() {
     float out;
     if (wave_ == LfoWave::SampleAndHold) {
         out = sh_value_;
+    } else if (wave_ == LfoWave::SmoothRandom) {
+        smooth_value_ += slew_coeff_ * (sh_value_ - smooth_value_);
+        out = smooth_value_;
     } else {
         out = lfo_compute(phase_, wave_);
     }
+    amplitude_ += RAMP_COEFF * (1.0f - amplitude_);
+    out *= amplitude_;
+
     phase_ += phase_inc_;
-    // Normalize phase to [0, 2π) for both positive and negative increments
     while (phase_ >= TWO_PI) {
         phase_ -= TWO_PI;
-        // New S&H sample on cycle wrap
         rand_     = lcg_next(rand_);
         sh_value_ = lcg_to_float(rand_);
+        if (jitter_ > 0.0f) {
+            rand_         = lcg_next(rand_);
+            const float j = lcg_to_float(rand_) * jitter_ * 0.05f;
+            phase_inc_    = phase_inc_base_ * (1.0f + j);
+        }
     }
-    while (phase_ < 0.0f) {
-        phase_ += TWO_PI;
-        rand_     = lcg_next(rand_);
-        sh_value_ = lcg_to_float(rand_);
-    }
+    while (phase_ < 0.0f) { phase_ += TWO_PI; }
     return out;
 }
 
@@ -68,21 +80,27 @@ float Lfo::PrepareBlock() {
     float out;
     if (wave_ == LfoWave::SampleAndHold) {
         out = sh_value_;
+    } else if (wave_ == LfoWave::SmoothRandom) {
+        smooth_value_ += slew_coeff_ * (sh_value_ - smooth_value_);
+        out = smooth_value_;
     } else {
         out = lfo_compute(phase_, wave_);
     }
+    amplitude_ += RAMP_COEFF * (1.0f - amplitude_);
+    out *= amplitude_;
+
     phase_ += phase_inc_ * static_cast<float>(BLOCK_SIZE);
-    // Normalize phase to [0, 2π) for both positive and negative increments
     while (phase_ >= TWO_PI) {
         phase_ -= TWO_PI;
         rand_     = lcg_next(rand_);
         sh_value_ = lcg_to_float(rand_);
+        if (jitter_ > 0.0f) {
+            rand_         = lcg_next(rand_);
+            const float j = lcg_to_float(rand_) * jitter_ * 0.05f;
+            phase_inc_    = phase_inc_base_ * (1.0f + j);
+        }
     }
-    while (phase_ < 0.0f) {
-        phase_ += TWO_PI;
-        rand_     = lcg_next(rand_);
-        sh_value_ = lcg_to_float(rand_);
-    }
+    while (phase_ < 0.0f) { phase_ += TWO_PI; }
     return out;
 }
 
