@@ -41,12 +41,16 @@ void RotaryMode::Init() {
     actual_drum_rate_ = kDrumChorale;
 
     horn_lfo_.Init(kHornChorale, LfoWave::Sine);
+    horn_lfo_.SetJitter(0.1f);
     horn_lfo_q_.Init(kHornChorale, LfoWave::Sine);
+    horn_lfo_q_.SetJitter(0.1f);
     horn_lfo_q_.SetPhaseOffset(kTwoPi * 0.25f);
     horn_lfo_q_.Reset();
 
     drum_lfo_.Init(kDrumChorale, LfoWave::Sine);
+    drum_lfo_.SetJitter(0.1f);
     drum_lfo_q_.Init(kDrumChorale, LfoWave::Sine);
+    drum_lfo_q_.SetJitter(0.1f);
     drum_lfo_q_.SetPhaseOffset(kTwoPi * 0.25f);
     drum_lfo_q_.Reset();
 
@@ -60,7 +64,7 @@ void RotaryMode::Init() {
     horn_color_r_.SetQ(1.5f);
     horn_color_r_.SetFreq(2500.0f);
 
-    drive_.Init();
+    drive_.Init(WaveCurve::Tube);
     dc_l_.Init();
     dc_r_.Init();
 }
