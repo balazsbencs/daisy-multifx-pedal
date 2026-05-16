@@ -20,7 +20,7 @@
   --sl-color-white:       rgba(255, 255, 255, 0.87);
   --sl-color-gray-1:      rgba(255, 255, 255, 0.70);
   --sl-color-gray-2:      rgba(255, 255, 255, 0.55);
-  --sl-color-gray-3:      rgba(255, 255, 255, 0.38);
+  --sl-color-gray-3:      rgba(255, 255, 255, 0.52);
   --sl-color-gray-4:      rgba(255, 255, 255, 0.22);
   --sl-color-gray-5:      rgba(255, 255, 255, 0.12);
   --sl-color-gray-6:      rgba(255, 255, 255, 0.07);
@@ -93,5 +93,4 @@ starlight-theme-select {
 /* ── Aside / callout blocks ── */
 .starlight-aside {
   border-inline-start-color: var(--color-mod) !important;
-  background: rgba(0, 229, 255, 0.05) !important;
 }
