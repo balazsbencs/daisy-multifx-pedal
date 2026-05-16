@@ -11,14 +11,16 @@ static DelayLineSdram       tape_line;
 
 void TapeDelay::Init() {
     tape_line.Init(tape_buf, MAX_DELAY_SAMPLES);
-    lfo_.Init(1.0f, LfoWave::Sine);
+    lfo_.Init(1.0f, LfoWave::SmoothRandom);
+    lfo_.SetJitter(0.5f);
     filter_.Init();
     filter_.SetKnob(0.4f); // slight LP for tape warmth default
-    sat_.Init();
+    sat_.Init(WaveCurve::Tape);
     dc_.Init();
 }
 
 void TapeDelay::Reset() {
+    lfo_.Reset();
     tape_line.Reset();
     dc_.Init();
 }
@@ -48,7 +50,7 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     wet = filter_.Process(wet);
 
     // Saturation on feedback path; drive scales with grit
-    wet = sat_.Process(wet * (1.0f + params.grit));
+    wet = sat_.Process(wet);
 
     const float feedback = wet * params.repeats;
     float write_val = input + feedback;
