@@ -21,6 +21,7 @@ void TapeDelay::Init() {
 
 void TapeDelay::Reset() {
     lfo_.Reset();
+    lfo_out_ = 0.0f;
     tape_line.Reset();
     dc_.Init();
 }
