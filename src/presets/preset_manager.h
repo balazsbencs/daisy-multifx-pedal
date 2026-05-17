@@ -17,6 +17,7 @@ struct MultiPresetSlot {
     float   mod_norm[NUM_PARAMS];
     float   delay_norm[NUM_PARAMS];
     float   reverb_norm[NUM_PARAMS];
+    uint8_t fx_enabled[3];
 
     bool operator!=(const MultiPresetSlot& o) const;
 };
@@ -31,6 +32,8 @@ public:
     bool LoadActive(MultiPresetSlot& out);
     bool LoadSlot(int slot, MultiPresetSlot& out);
     bool SaveSlot(int slot, const MultiPresetSlot& data);
+    bool LoadLiveState(MultiPresetSlot& out);
+    bool SaveLiveState(const MultiPresetSlot& data);
 
 private:
     struct StorageState {
@@ -39,6 +42,7 @@ private:
         uint16_t       active_slot;
         uint32_t       crc;
         MultiPresetSlot slots[PRESET_SLOT_COUNT];
+        MultiPresetSlot live_state;
 
         bool operator!=(const StorageState& o) const;
     };
