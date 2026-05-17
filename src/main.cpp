@@ -188,14 +188,17 @@ int main() {
     // ── Restore live state on boot ─────────────────────────────────────────
     {
         MultiPresetSlot live;
-        if (preset_manager.LoadLiveState(live)) {
+        if (preset_manager.LoadLiveState(live) &&
+            live.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES) &&
+            live.delay_mode  < static_cast<uint8_t>(NUM_DELAY_MODES) &&
+            live.reverb_mode < static_cast<uint8_t>(NUM_REVERB_MODES)) {
             SwitchModMode(static_cast<ModModeId>(live.mod_mode));
             SwitchDelayMode(static_cast<DelayModeId>(live.delay_mode));
             SwitchReverbMode(static_cast<ReverbModeId>(live.reverb_mode));
             for (int i = 0; i < NUM_PARAMS; ++i) {
-                mod_norm[i]    = live.mod_norm[i];
-                delay_norm[i]  = live.delay_norm[i];
-                reverb_norm[i] = live.reverb_norm[i];
+                mod_norm[i]    = Clamp01(live.mod_norm[i]);
+                delay_norm[i]  = Clamp01(live.delay_norm[i]);
+                reverb_norm[i] = Clamp01(live.reverb_norm[i]);
             }
             for (int i = 0; i < 3; ++i) {
                 fx_enabled[i] = live.fx_enabled[i];
