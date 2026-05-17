@@ -7,7 +7,8 @@ struct ParamRange {
     float min;
     float max;
     // Curve: 0=linear, positive=log (boost lows), negative=exp (boost highs)
-    float curve; // exponent applied: value = t^(2^curve)
+    // Exponent: curve>0 -> t^(curve+1), curve<0 -> t^(1/(1-curve))
+    float curve;
 };
 
 // Apply curve transform to normalized [0,1] value
@@ -26,6 +27,8 @@ inline float apply_curve(float t, float curve) {
 }
 
 inline float map_param(float normalized, const ParamRange& range) {
+    if (normalized < 0.0f) normalized = 0.0f;
+    if (normalized > 1.0f) normalized = 1.0f;
     float curved = apply_curve(normalized, range.curve);
     return range.min + curved * (range.max - range.min);
 }

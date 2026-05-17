@@ -1,6 +1,6 @@
 # ── Multi-FX Pedal (reverb + modulation + delay, chained) ────────────────────
 TARGET   = multi-fx
-APP_TYPE = BOOT_QSPI
+#APP_TYPE = BOOT_QSPI
 
 # ── Source files ──────────────────────────────────────────────────────────────
 CPP_SOURCES = \
