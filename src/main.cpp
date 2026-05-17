@@ -184,6 +184,26 @@ int main() {
     // end up configured for the screen, matching the working delay project.
     display.Init();
     preset_manager.Init(hw);
+
+    // ── Restore live state on boot ─────────────────────────────────────────
+    {
+        MultiPresetSlot live;
+        if (preset_manager.LoadLiveState(live)) {
+            SwitchModMode(static_cast<ModModeId>(live.mod_mode));
+            SwitchDelayMode(static_cast<DelayModeId>(live.delay_mode));
+            SwitchReverbMode(static_cast<ReverbModeId>(live.reverb_mode));
+            for (int i = 0; i < NUM_PARAMS; ++i) {
+                mod_norm[i]    = live.mod_norm[i];
+                delay_norm[i]  = live.delay_norm[i];
+                reverb_norm[i] = live.reverb_norm[i];
+            }
+            for (int i = 0; i < 3; ++i) {
+                fx_enabled[i] = live.fx_enabled[i];
+                led_fx[i].Write(fx_enabled[i]);
+            }
+        }
+    }
+
     tempo_sync.Init();
 
     hw.StartAudio(AudioEngine::AudioCallback);
