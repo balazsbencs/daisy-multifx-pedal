@@ -50,6 +50,10 @@ static bool hold_active   = false;
 static int  preset_slot   = 0;
 static bool fx_enabled[3] = {true, false, false}; // 0=mod,1=delay,2=reverb — off by default
 
+static bool     live_state_dirty            = false;
+static uint32_t last_change_ms              = 0;
+constexpr uint32_t kLiveStateSaveDebounceMs = 2000;
+
 // Status LEDs (one per effect footswitch)
 static daisy::GPIO led_fx[3];
 
@@ -63,6 +67,21 @@ static float Clamp01(float v) {
 static int WrapIndex(int value, int count) {
     value %= count;
     return (value < 0) ? (value + count) : value;
+}
+
+static MultiPresetSlot SnapshotLiveState() {
+    MultiPresetSlot s{};
+    s.valid       = 1;
+    s.mod_mode    = static_cast<uint8_t>(cur_mod);
+    s.delay_mode  = static_cast<uint8_t>(cur_delay);
+    s.reverb_mode = static_cast<uint8_t>(cur_reverb);
+    for (int i = 0; i < NUM_PARAMS; ++i) {
+        s.mod_norm[i]    = mod_norm[i];
+        s.delay_norm[i]  = delay_norm[i];
+        s.reverb_norm[i] = reverb_norm[i];
+    }
+    for (int i = 0; i < 3; ++i) s.fx_enabled[i] = fx_enabled[i] ? 1 : 0;
+    return s;
 }
 
 static void ApplyEncoderEdit(float& target, int delta, uint32_t now,
