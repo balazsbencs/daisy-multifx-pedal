@@ -4,7 +4,9 @@
 namespace pedal {
 
 static constexpr uint32_t kMagic   = 0x4D554C54; // "MULT"
-static constexpr uint16_t kVersion = 1;
+static constexpr uint16_t kVersion = 2;
+static_assert(sizeof(MultiPresetSlot) == 92,
+    "MultiPresetSlot layout changed — bump kVersion and update this assert");
 
 bool MultiPresetSlot::operator!=(const MultiPresetSlot& o) const {
     return memcmp(this, &o, sizeof(*this)) != 0;
@@ -39,6 +41,24 @@ bool MultiPresetManager::LoadSlot(int slot, MultiPresetSlot& out) {
 
 bool MultiPresetManager::LoadActive(MultiPresetSlot& out) {
     return LoadSlot(active_slot_, out);
+}
+
+bool MultiPresetManager::LoadLiveState(MultiPresetSlot& out) {
+    if (!initialized_) return false;
+    const auto& s = storage().GetSettings().live_state;
+    if (!s.valid) return false;
+    out = s;
+    return true;
+}
+
+bool MultiPresetManager::SaveLiveState(const MultiPresetSlot& data) {
+    if (!initialized_) return false;
+    StorageState s    = storage().GetSettings();
+    s.live_state      = data;
+    s.live_state.valid = 1;
+    storage().GetSettings() = s;
+    storage().Save();
+    return true;
 }
 
 bool MultiPresetManager::SaveSlot(int slot, const MultiPresetSlot& data) {
