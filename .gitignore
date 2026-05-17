@@ -9,3 +9,7 @@ build/
 *.a
 .idea
 .worktrees/
+website/node_modules/
+website/dist/
+website/.astro/
+.superpowers/
