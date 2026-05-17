@@ -26,7 +26,7 @@ jobs:
       - uses: withastro/action@v3
         with:
           path: ./website
-          node-version: 20
+          node-version: 22
 
   deploy:
     name: Deploy to GitHub Pages
