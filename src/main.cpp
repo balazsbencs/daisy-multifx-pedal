@@ -202,8 +202,10 @@ int main() {
         // ── Effect on/off footswitches ───────────────────────────────────────
         for (int i = 0; i < 3; ++i) {
             if (ctrl.fx_pressed[i]) {
-                fx_enabled[i] = !fx_enabled[i];
+                fx_enabled[i]    = !fx_enabled[i];
                 led_fx[i].Write(fx_enabled[i]);
+                live_state_dirty = true;
+                last_change_ms   = now;
             }
         }
 
@@ -249,6 +251,8 @@ int main() {
                     break;
                 }
             }
+            live_state_dirty = true;
+            last_change_ms   = now;
         }
 
         // ── Parameter encoders → active page params ────────────────────────────
@@ -266,6 +270,8 @@ int main() {
             if (param_idx < NUM_PARAMS) {
                 ApplyEncoderEdit(active_norm[param_idx], delta, now,
                                  last_enc_tick_ms[param_idx]);
+                live_state_dirty = true;
+                last_change_ms   = now;
             }
         }
 
@@ -291,9 +297,9 @@ int main() {
         midi_handler.Poll(midi);
 
         for (int p = 0; p < NUM_PARAMS; ++p) {
-            if (midi.mod_cc_rx[p])    mod_norm[p]    = midi.mod_cc[p];
-            if (midi.delay_cc_rx[p])  delay_norm[p]  = midi.delay_cc[p];
-            if (midi.reverb_cc_rx[p]) reverb_norm[p] = midi.reverb_cc[p];
+            if (midi.mod_cc_rx[p])    { mod_norm[p]    = midi.mod_cc[p];    live_state_dirty = true; last_change_ms = now; }
+            if (midi.delay_cc_rx[p])  { delay_norm[p]  = midi.delay_cc[p];  live_state_dirty = true; last_change_ms = now; }
+            if (midi.reverb_cc_rx[p]) { reverb_norm[p] = midi.reverb_cc[p]; live_state_dirty = true; last_change_ms = now; }
         }
         if (midi.hold_on)  { hold_active = true;  audio_engine.SetHold(true);  }
         if (midi.hold_off) { hold_active = false; audio_engine.SetHold(false); }
@@ -323,6 +329,12 @@ int main() {
                            buf.mod, buf.delay, buf.reverb,
                            fx_enabled, hold_active, preset_slot,
                            PresetUiEvent::None, now);
+        }
+
+        // ── Live state auto-save (debounced) ──────────────────────────────────
+        if (live_state_dirty && (now - last_change_ms) >= kLiveStateSaveDebounceMs) {
+            preset_manager.SaveLiveState(SnapshotLiveState());
+            live_state_dirty = false;
         }
     }
 }
