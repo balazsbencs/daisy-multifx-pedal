@@ -10,7 +10,7 @@
 
 namespace pedal {
 
-static constexpr uint16_t kPageAccent[3] = { 0x07FF, 0xFD20, 0x001F };
+static constexpr uint16_t kPageAccent[3] = { 0x07FF, 0xFD20, 0x8EF1 };
 
 // Returns display string for discrete-select MOD params, nullptr for continuous.
 static const char* GetModEnumLabel(ModModeId mode, int param_idx, float norm) {
