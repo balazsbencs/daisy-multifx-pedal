@@ -19,8 +19,14 @@ make -j4
 
 Flash to hardware (requires Daisy Bootloader already on device):
 ```bash
-make program-dfu   # USB DFU: hold BOOT, press RESET, then run this
+# Step 1 — install bootloader once (ROM DFU: hold BOOT, press RESET, then run):
+make program-boot
+
+# Step 2 — flash app (Daisy Bootloader DFU: press RESET only, then within 2s run):
+make program-dfu
 ```
+Note: "hold BOOT + RESET" enters ROM DFU ("Internal Flash") which cannot write QSPI.
+Just "RESET" enters Daisy Bootloader DFU ("Flash") which can write QSPI at 0x90040000.
 
 There are no automated tests in this project.
 
