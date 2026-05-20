@@ -398,9 +398,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DaisyMultiFxAudioProcessor::
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     // Bypass toggles
-    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassMod", 1), "Bypass Modulation", true));
-    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassDelay", 1), "Bypass Delay", true));
-    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassReverb", 1), "Bypass Reverb", true));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassMod", 1), "Bypass Modulation", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassDelay", 1), "Bypass Delay", false));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypassReverb", 1), "Bypass Reverb", false));
 
     // Mode choices
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("modeMod", 1), "Modulation Mode",
