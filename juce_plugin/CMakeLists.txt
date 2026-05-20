@@ -86,7 +86,6 @@ target_compile_definitions(DaisyMultiFx PRIVATE
 
 target_link_libraries(DaisyMultiFx PRIVATE
     juce::juce_audio_processors
-    juce::juce_audio_utils
     juce::juce_gui_extra
     juce::juce_gui_basics
     juce::juce_graphics
