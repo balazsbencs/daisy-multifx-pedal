@@ -103,10 +103,13 @@ StereoFrame Fdn::Process(float input) {
     // Hadamard mixing.
     float mixed[MAX_LINES]{};
     std::memcpy(mixed, lp_state_, n_lines_ * sizeof(float));
+    if (n_lines_ != 4 && n_lines_ != 8) {
+        return StereoFrame{ mixed[0], mixed[0] };
+    }
     if (n_lines_ == 8) {
         hadamard8(mixed);
     } else {
-        hadamard4(mixed);  // works for n_lines_<=4; ok for n_lines_==4
+        hadamard4(mixed);
     }
 
     // Distribute input and write back with feedback.
@@ -152,10 +155,13 @@ StereoFrame Fdn::Process(StereoFrame input) {
     // Hadamard mixing.
     float mixed[MAX_LINES]{};
     std::memcpy(mixed, lp_state_, n_lines_ * sizeof(float));
+    if (n_lines_ != 4 && n_lines_ != 8) {
+        return StereoFrame{ mixed[0], mixed[0] };
+    }
     if (n_lines_ == 8) {
         hadamard8(mixed);
     } else {
-        hadamard4(mixed);  // works for n_lines_<=4; ok for n_lines_==4
+        hadamard4(mixed);
     }
 
     // Distribute input and write back with feedback.
