@@ -107,7 +107,7 @@ bool DaisyMultiFxAudioProcessor::isMidiEffect() const
 
 double DaisyMultiFxAudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;
+    return 20.0; // max reverb decay
 }
 
 int DaisyMultiFxAudioProcessor::getNumPrograms()
