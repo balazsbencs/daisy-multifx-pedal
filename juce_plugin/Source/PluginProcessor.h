@@ -60,11 +60,6 @@ private:
     // Sample counter for the 48-sample block rate
     int sampleCounter_ = 0;
 
-    // Replay buffers for coefficient calculations
-    mod_fx::ParamSet mod_params_;
-    delay_fx::ParamSet delay_params_;
-    reverb_fx::ParamSet reverb_params_;
-
     // Dry/wet coefficients cached per stage
     float mod_dry_ = 1.0f, mod_wet_ = 0.0f, mod_norm_ = 1.0f;
     float dly_dry_ = 1.0f, dly_wet_ = 0.0f, dly_norm_ = 1.0f;

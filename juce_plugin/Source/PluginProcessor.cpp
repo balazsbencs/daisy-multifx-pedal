@@ -224,6 +224,11 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     bool delayBypass = apvts.getRawParameterValue("bypassDelay")->load() > 0.5f;
     bool reverbBypass = apvts.getRawParameterValue("bypassReverb")->load() > 0.5f;
 
+    // Immutable per-block snapshots (zero-initialised; rebuilt every 48 samples)
+    mod_fx::ParamSet    mod_snap{};
+    delay_fx::ParamSet  dly_snap{};
+    reverb_fx::ParamSet rev_snap{};
+
     // Audio loop
     for (int i = 0; i < numSamples; ++i) {
         if (sampleCounter_ == 0) {
@@ -277,43 +282,43 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             int modDiv = (int)apvts.getRawParameterValue("modNoteDiv")->load();
 
             // Mod params building
-            mod_params_.speed = map_param(modSpeed, mod_fx::get_param_range(modeMod, mod_fx::ParamId::Speed));
-            mod_params_.depth = modDepth;
-            mod_params_.mix   = modMix;
-            mod_params_.tone  = modTone;
-            mod_params_.p1    = modP1;
-            mod_params_.p2    = modP2;
-            mod_params_.level = map_param(modLevel, mod_fx::default_ranges::LEVEL);
+            mod_snap.speed = map_param(modSpeed, mod_fx::get_param_range(modeMod, mod_fx::ParamId::Speed));
+            mod_snap.depth = modDepth;
+            mod_snap.mix   = modMix;
+            mod_snap.tone  = modTone;
+            mod_snap.p1    = modP1;
+            mod_snap.p2    = modP2;
+            mod_snap.level = map_param(modLevel, mod_fx::default_ranges::LEVEL);
             if (modSync && currentBpm_ > 0.0) {
                 float beats = getModNoteDurationBeats(modDiv);
                 float secs = beats * (60.0f / (float)currentBpm_);
-                mod_params_.speed = 1.0f / secs;
+                mod_snap.speed = 1.0f / secs;
             }
-            mod_params_.speed *= sr_scale;
+            mod_snap.speed *= sr_scale;
 
             // Delay params building
-            delay_params_.time    = map_param(delayTime, delay_fx::get_param_range(modeDelay, delay_fx::ParamId::Time));
-            delay_params_.repeats = map_param(delayRepeats, delay_fx::default_ranges::REPEATS);
-            delay_params_.mix     = delayMix;
-            delay_params_.filter  = delayFilter;
-            delay_params_.grit    = delayGrit;
-            delay_params_.mod_spd = map_param(delayModSpd, delay_fx::default_ranges::MOD_SPD);
-            delay_params_.mod_dep = delayModDep;
+            dly_snap.time    = map_param(delayTime, delay_fx::get_param_range(modeDelay, delay_fx::ParamId::Time));
+            dly_snap.repeats = map_param(delayRepeats, delay_fx::default_ranges::REPEATS);
+            dly_snap.mix     = delayMix;
+            dly_snap.filter  = delayFilter;
+            dly_snap.grit    = delayGrit;
+            dly_snap.mod_spd = map_param(delayModSpd, delay_fx::default_ranges::MOD_SPD);
+            dly_snap.mod_dep = delayModDep;
             if (delaySync && currentBpm_ > 0.0) {
                 float beats = getNoteDurationBeats(delayDiv);
-                delay_params_.time = beats * (60.0f / (float)currentBpm_);
+                dly_snap.time = beats * (60.0f / (float)currentBpm_);
             }
-            delay_params_.time /= sr_scale;
-            delay_params_.mod_spd *= sr_scale;
+            dly_snap.time /= sr_scale;
+            dly_snap.mod_spd *= sr_scale;
 
             // Reverb params building
-            reverb_params_.decay     = map_param(reverbDecay, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Decay));
-            reverb_params_.pre_delay = map_param(reverbPreDelay, reverb_fx::default_ranges::PRE_DELAY);
-            reverb_params_.mix       = reverbMix;
-            reverb_params_.tone      = reverbTone;
-            reverb_params_.mod       = reverbMod;
-            reverb_params_.param1    = map_param(reverbParam1, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Param1));
-            reverb_params_.param2    = map_param(reverbParam2, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Param2));
+            rev_snap.decay     = map_param(reverbDecay, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Decay));
+            rev_snap.pre_delay = map_param(reverbPreDelay, reverb_fx::default_ranges::PRE_DELAY);
+            rev_snap.mix       = reverbMix;
+            rev_snap.tone      = reverbTone;
+            rev_snap.mod       = reverbMod;
+            rev_snap.param1    = map_param(reverbParam1, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Param1));
+            rev_snap.param2    = map_param(reverbParam2, reverb_fx::get_param_range(modeReverb, reverb_fx::ParamId::Param2));
 
             // Update coefficients
             updateMixCoeffs(modMix, delayMix, reverbMix);
@@ -322,9 +327,9 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if (active_reverb_) active_reverb_->SetHold(reverbHold);
 
             // Prepare DSP blocks (always prepare to keep filters/LFOs from going stale)
-            if (active_mod_)    active_mod_->Prepare(mod_params_);
-            if (active_delay_)  active_delay_->Prepare(delay_params_);
-            if (active_reverb_) active_reverb_->Prepare(reverb_params_);
+            if (active_mod_)    active_mod_->Prepare(mod_snap);
+            if (active_delay_)  active_delay_->Prepare(dly_snap);
+            if (active_reverb_) active_reverb_->Prepare(rev_snap);
         }
 
         const float dryL = inL[i];
@@ -333,7 +338,7 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Stage 1: modulation (stereo in/out)
         StereoFrame s1;
         if (active_mod_ && !modBypass) {
-            const StereoFrame wet = active_mod_->Process({dryL, dryR}, mod_params_);
+            const StereoFrame wet = active_mod_->Process({dryL, dryR}, mod_snap);
             s1.left  = (dryL * mod_dry_ + wet.left  * mod_wet_) * mod_norm_;
             s1.right = (dryR * mod_dry_ + wet.right * mod_wet_) * mod_norm_;
         } else {
@@ -343,7 +348,7 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Stage 2: delay (mono input from s1.left → stereo out)
         StereoFrame s2;
         if (active_delay_ && !delayBypass) {
-            const StereoFrame wet = active_delay_->Process(s1.left, delay_params_);
+            const StereoFrame wet = active_delay_->Process(s1.left, dly_snap);
             s2.left  = (s1.left  * dly_dry_ + wet.left  * dly_wet_) * dly_norm_;
             s2.right = (s1.right * dly_dry_ + wet.right * dly_wet_) * dly_norm_;
         } else {
@@ -353,7 +358,7 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // Stage 3: reverb (mono input from s2.left → stereo out)
         StereoFrame s3;
         if (active_reverb_ && !reverbBypass) {
-            const StereoFrame wet = active_reverb_->Process(s2.left, reverb_params_);
+            const StereoFrame wet = active_reverb_->Process(s2.left, rev_snap);
             s3.left  = (s2.left  * rev_dry_ + wet.left  * rev_wet_) * rev_norm_;
             s3.right = (s2.right * rev_dry_ + wet.right * rev_wet_) * rev_norm_;
         } else {
