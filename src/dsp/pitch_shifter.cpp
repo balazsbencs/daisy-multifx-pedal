@@ -1,4 +1,5 @@
 #include "pitch_shifter.h"
+#include "fast_math.h"
 #include <cmath>
 #include <cstring>
 
@@ -51,8 +52,11 @@ float PitchShifter::Process(float input) {
     const float phase_inc = 1.0f / static_cast<float>(GRAIN_SIZE);
 
     for (int g = 0; g < 2; ++g) {
-        // Hann window: peaks at phase=0.5, zero at phase=0 and 1
-        const float w = 0.5f * (1.0f - std::cos(grain_phase_[g] * 6.28318530718f));
+        // Hann window: peaks at phase=0.5, zero at phase=0 and 1.
+        // Trig identity: 0.5 * (1 - cos(2*pi*x)) = sin(pi*x)^2.
+        // We use fast_sin which is highly efficient.
+        const float sin_val = fast_sin(grain_phase_[g] * 3.14159265359f);
+        const float w = sin_val * sin_val;
         out += w * ReadInterp(read_pos_[g]);
 
         read_pos_[g]   += ratio_;

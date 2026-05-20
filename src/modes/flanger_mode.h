@@ -2,6 +2,7 @@
 #include "mod_mode.h"
 #include "../dsp/lfo.h"
 #include "../dsp/dc_blocker.h"
+#include <cstring>
 
 namespace pedal {
 
@@ -18,6 +19,27 @@ struct SimpleLpf {
     float Process(float input) {
         state = state + coeff * (input - state);
         return state;
+    }
+};
+
+// A small, highly efficient integer delay line for the pure dry path in TZF.
+struct DryDelay {
+    float  buf[16];
+    size_t write;
+
+    void Init() {
+        std::memset(buf, 0, sizeof(buf));
+        write = 0;
+    }
+
+    void Write(float sample) {
+        buf[write] = sample;
+        write = (write + 1) & 15;
+    }
+
+    float Read(size_t delay_samples) const {
+        size_t read_ptr = (write + 14 - delay_samples) & 15;
+        return buf[read_ptr];
     }
 };
 
@@ -43,9 +65,18 @@ private:
     SimpleLpf fb_lpf_l_;
     SimpleLpf fb_lpf_r_;
 
+    // Pure dry delay lines for through-zero flanging
+    DryDelay  dry_delay_l_;
+    DryDelay  dry_delay_r_;
+
     float     max_depth_ = 240.0f;  // max delay swing for current sub-mode
     float     depth_     = 0.5f;    // cached params.depth
     float     fb_sign_   = 1.0f;    // +1 or -1 from sub-mode
+
+    // Random walk / noise state for wow & flutter drift emulation
+    uint32_t  rand_state_ = 12345;
+    float     drift_l_    = 0.0f;
+    float     drift_r_    = 0.0f;
 };
 
 } // namespace pedal

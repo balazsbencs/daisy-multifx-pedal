@@ -22,6 +22,7 @@ void Fdn::Init(const Config& cfg) {
         lp_state_[i]  = 0.0f;
         lfo_phase_[i] = static_cast<float>(i) / static_cast<float>(n_lines_);
         feedback_[i]  = 0.7f;  // reasonable default
+        dc_[i].Init();
     }
 }
 
@@ -29,6 +30,7 @@ void Fdn::Reset() {
     for (int i = 0; i < n_lines_; ++i) {
         lines_[i].Reset();
         lp_state_[i] = 0.0f;
+        dc_[i].Init();
     }
 }
 
@@ -92,9 +94,10 @@ StereoFrame Fdn::Process(float input) {
         if (lfo_phase_[i] >= 1.0f) lfo_phase_[i] -= 1.0f;
     }
 
-    // One-pole LP damping in feedback path.
+    // One-pole LP damping & DC blocking in feedback path.
     for (int i = 0; i < n_lines_; ++i) {
-        lp_state_[i] += damp_ * (v[i] - lp_state_[i]);
+        float raw_blocked = dc_[i].Process(v[i]);
+        lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
     }
 
     // Hadamard mixing.
@@ -111,6 +114,56 @@ StereoFrame Fdn::Process(float input) {
     for (int i = 0; i < n_lines_; ++i) {
         const float fb = hold_ ? 1.0f : feedback_[i];
         lines_[i].Write(input * input_gain + fb * mixed[i]);
+    }
+
+    // Stereo output: even lines → L, odd lines → R.
+    float left = 0.0f, right = 0.0f;
+    const float out_scale = 2.0f / static_cast<float>(n_lines_);
+    for (int i = 0; i < n_lines_; i += 2) left  += v[i];
+    for (int i = 1; i < n_lines_; i += 2) right += v[i];
+    return StereoFrame{ left * out_scale, right * out_scale };
+}
+
+StereoFrame Fdn::Process(StereoFrame input) {
+    float v[MAX_LINES]{};
+
+    // Read from each delay line (with optional LFO modulation).
+    const float lfo_inc = 1.0f / sample_rate_;
+    for (int i = 0; i < n_lines_; ++i) {
+        float delay = delay_samples_[i];
+        if (mod_depth_ > 0.0f) {
+            const float lfo = fast_sin(lfo_phase_[i] * 6.28318530718f);
+            delay += mod_depth_ * lfo;
+            if (delay < 1.0f) delay = 1.0f;
+        }
+        v[i] = lines_[i].ReadAt(delay);
+
+        // Advance LFO phase
+        lfo_phase_[i] += kLfoRates[i] * lfo_inc;
+        if (lfo_phase_[i] >= 1.0f) lfo_phase_[i] -= 1.0f;
+    }
+
+    // One-pole LP damping & DC blocking in feedback path.
+    for (int i = 0; i < n_lines_; ++i) {
+        float raw_blocked = dc_[i].Process(v[i]);
+        lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+    }
+
+    // Hadamard mixing.
+    float mixed[MAX_LINES]{};
+    std::memcpy(mixed, lp_state_, n_lines_ * sizeof(float));
+    if (n_lines_ == 8) {
+        hadamard8(mixed);
+    } else {
+        hadamard4(mixed);  // works for n_lines_<=4; ok for n_lines_==4
+    }
+
+    // Distribute input and write back with feedback.
+    const float input_gain = 1.0f / static_cast<float>(n_lines_);
+    for (int i = 0; i < n_lines_; ++i) {
+        const float fb = hold_ ? 1.0f : feedback_[i];
+        const float in_val = (i % 2 == 0) ? input.left : input.right;
+        lines_[i].Write(in_val * input_gain + fb * mixed[i]);
     }
 
     // Stereo output: even lines → L, odd lines → R.

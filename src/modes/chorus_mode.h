@@ -4,6 +4,7 @@
 #include "../dsp/delay_line_sdram.h"
 #include "../dsp/bbd_emulator.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/pitch_shifter.h"
 
 namespace pedal {
 
@@ -29,6 +30,8 @@ private:
     float       mod_depth_  = 0.0f;
     float       fb_samp_    = 0.0f;  // feedback register for dBucket
     float       feedback_   = 0.0f;  // feedback coefficient (set from tone in Prepare)
+    PitchShifter* shifter_l_ = nullptr;
+    PitchShifter* shifter_r_ = nullptr;
 };
 
 } // namespace pedal

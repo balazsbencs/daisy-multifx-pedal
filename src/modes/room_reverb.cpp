@@ -14,10 +14,14 @@ static float DSY_SDRAM_BSS buf_diff0[143];
 static float DSY_SDRAM_BSS buf_diff1[108];
 static float DSY_SDRAM_BSS buf_diff2[380];
 static float DSY_SDRAM_BSS buf_diff3[278];
-static float DSY_SDRAM_BSS buf_fdn0[2904];
-static float DSY_SDRAM_BSS buf_fdn1[3492];
-static float DSY_SDRAM_BSS buf_fdn2[4160];
-static float DSY_SDRAM_BSS buf_fdn3[4814];
+static float DSY_SDRAM_BSS buf_fdn0[1907];
+static float DSY_SDRAM_BSS buf_fdn1[2239];
+static float DSY_SDRAM_BSS buf_fdn2[2593];
+static float DSY_SDRAM_BSS buf_fdn3[2903];
+static float DSY_SDRAM_BSS buf_fdn4[3307];
+static float DSY_SDRAM_BSS buf_fdn5[3697];
+static float DSY_SDRAM_BSS buf_fdn6[4159];
+static float DSY_SDRAM_BSS buf_fdn7[4799];
 
 // ER tap table: 8 taps, typical small-room reflections
 static constexpr ErTap kErTaps[] = {
@@ -48,11 +52,14 @@ void RoomReverb::Init() {
     diffuser_.SetDiffusion(0.65f);
 
     float* fdn_bufs[Fdn::MAX_LINES] = {
-        buf_fdn0, buf_fdn1, buf_fdn2, buf_fdn3
+        buf_fdn0, buf_fdn1, buf_fdn2, buf_fdn3,
+        buf_fdn4, buf_fdn5, buf_fdn6, buf_fdn7
     };
-    const size_t fdn_delays[Fdn::MAX_LINES] = { 2904, 3492, 4160, 4814 };
-    Fdn::Config fdn_cfg{4, {}, {}, SAMPLE_RATE};
-    for (int i = 0; i < 4; ++i) {
+    const size_t fdn_delays[Fdn::MAX_LINES] = {
+        1907, 2239, 2593, 2903, 3307, 3697, 4159, 4799
+    };
+    Fdn::Config fdn_cfg{8, {}, {}, SAMPLE_RATE};
+    for (int i = 0; i < 8; ++i) {
         fdn_cfg.bufs[i]   = fdn_bufs[i];
         fdn_cfg.delays[i] = fdn_delays[i];
     }
@@ -75,6 +82,7 @@ void RoomReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
+    fdn_.SetModulation(params.mod * 8.0f);
     diffuser_.SetDiffusion(params.param2);
     tone_.SetKnob(params.tone);
 }

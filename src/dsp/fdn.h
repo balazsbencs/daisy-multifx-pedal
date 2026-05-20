@@ -1,5 +1,6 @@
 #pragma once
 #include "delay_line_sdram.h"
+#include "dc_blocker.h"
 #include "../audio/stereo_frame.h"
 #include <cstddef>
 
@@ -40,12 +41,14 @@ public:
     void SetHold(bool hold);
 
     StereoFrame Process(float input);
+    StereoFrame Process(StereoFrame input);
 
 private:
     void hadamard4(float v[4]) const;
     void hadamard8(float v[8]) const;
 
     DelayLineSdram lines_[MAX_LINES];
+    DcBlocker      dc_[MAX_LINES];               // per-line DC blocker in feedback path
     float          delay_s_[MAX_LINES]{};        // per-line delay in seconds
     float          delay_samples_[MAX_LINES]{};  // per-line delay in samples (for modulated ReadAt)
     float          feedback_[MAX_LINES]{};       // nominal feedback gains

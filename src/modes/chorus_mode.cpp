@@ -12,6 +12,12 @@ static constexpr size_t kChorusBufSize = 2400;
 static float DSY_SDRAM_BSS s_chorus_buf[kChorusBufSize];
 static DelayLineSdram s_chorus_line;
 
+// Detune mode pitch shifters
+static float DSY_SDRAM_BSS detune_buf_l[4096];
+static float DSY_SDRAM_BSS detune_buf_r[4096];
+static PitchShifter s_shifter_l;
+static PitchShifter s_shifter_r;
+
 static constexpr float PI_2_3 = 2.094395f; // 2π/3 = 120°
 
 void ChorusMode::Init() {
@@ -24,6 +30,11 @@ void ChorusMode::Init() {
     }
     dc_.Init();
     dc_r_.Init();
+
+    s_shifter_l.Init(detune_buf_l, 4096, SAMPLE_RATE);
+    s_shifter_r.Init(detune_buf_r, 4096, SAMPLE_RATE);
+    shifter_l_ = &s_shifter_l;
+    shifter_r_ = &s_shifter_r;
 }
 
 void ChorusMode::Reset() {
@@ -33,6 +44,8 @@ void ChorusMode::Reset() {
     dc_r_.Init();
     bbd_.Reset();
     bbd_r_.Reset();
+    shifter_l_->Reset();
+    shifter_r_->Reset();
     rand_       = 12345;
     sub_mode_   = 4;
     base_samps_ = 48.0f;
@@ -46,7 +59,11 @@ void ChorusMode::Reset() {
 
 void ChorusMode::Prepare(const ParamSet& params) {
     // Sub-mode: 0=dBucket, 1=Multi, 2=Vibrato, 3=Detune, 4=Digital
-    sub_mode_ = static_cast<int>(params.p2 * 4.999f);
+    int new_sub_mode = static_cast<int>(params.p2 * 4.999f);
+    if (new_sub_mode != sub_mode_) {
+        sub_mode_ = new_sub_mode;
+        s_chorus_line.Reset();
+    }
 
     for (auto& l : lfo_) l.SetRate(params.speed);
 
@@ -73,13 +90,11 @@ void ChorusMode::Prepare(const ParamSet& params) {
     }
 
     if (sub_mode_ == 3) {
-        // Detune: two static offsets, no LFO — compute once here.
-        delays_[0] = base_samps_ - mod_depth_ * 0.3f;
-        delays_[1] = base_samps_ + mod_depth_ * 0.3f;
-        delays_[2] = base_samps_;
-        if (delays_[0] < 1.0f) delays_[0] = 1.0f;
-        if (delays_[1] >= static_cast<float>(kChorusBufSize - 2))
-            delays_[1] = static_cast<float>(kChorusBufSize - 2);
+        // Detune: pitch shift L down and R up.
+        // Depth controls maximum shift: 0 to 30 cents (0.3 semitones).
+        const float shift_semitones = params.depth * 0.30f;
+        shifter_l_->SetShift(-shift_semitones);
+        shifter_r_->SetShift(shift_semitones);
     }
     // Multi and single-voice: LFO advanced per-sample in Process() to avoid
     // block-boundary delay jumps that cause zipper noise at high LFO rates.
@@ -92,10 +107,12 @@ StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
     // This is the output-to-input feedback path that gives CE-2 lushness.
     float write_in = input.mono();
     if (sub_mode_ == 0) {
-        write_in = bbd_.Process(write_in + feedback_ * fb_samp_, 0.15f, rand_);
+        write_in = bbd_.Process(write_in + feedback_ * fb_samp_, 0.15f, rand_, base_samps_);
     }
 
-    s_chorus_line.Write(write_in);
+    if (sub_mode_ != 3) {
+        s_chorus_line.Write(write_in);
+    }
 
     float wet_l, wet_r;
 
@@ -113,9 +130,12 @@ StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
         wet_l = (t0 + t1) * 0.5f;
         wet_r = (t0 + t2) * 0.5f;
     } else if (sub_mode_ == 3) {
-        // Detune: L=tap0, R=tap1 (pre-computed in Prepare, no LFO)
-        wet_l = s_chorus_line.ReadAt(delays_[0]);
-        wet_r = s_chorus_line.ReadAt(delays_[1]);
+        // True Detune: pitch shift L down and R up.
+        // It operates directly on the input signal, creating a wide, lush
+        // pitch-detuned stereo field without any comb-filtering notches!
+        const float mono_in = input.mono();
+        wet_l = shifter_l_->Process(mono_in);
+        wet_r = shifter_r_->Process(mono_in);
     } else if (sub_mode_ == 0) {
         // dBucket CE-2w: two stereo taps at 120° LFO phase offset.
         // lfo_[0] drives L, lfo_[1] (initialised 120° ahead) drives R.

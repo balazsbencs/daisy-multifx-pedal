@@ -219,9 +219,7 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
     const float wet_r = kOutGain * (  d7_r0 + d7_r1 - last_ap8_
                                      - d8_r  + d5_r0 - d5_r1 - last_ap7_);
 
-    const float mix = params.mix;
-    return StereoFrame{ input * (1.0f - mix) + wet_l * mix,
-                        input * (1.0f - mix) + wet_r * mix };
+    return StereoFrame{ wet_l, wet_r };
 }
 
 void PlateReverb::SetHold(bool h) {

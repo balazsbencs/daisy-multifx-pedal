@@ -1,5 +1,6 @@
 #include "phaser_mode.h"
 #include "../config/constants.h"
+#include "../dsp/fast_math.h"
 
 using namespace pedal::mod_fx;
 
@@ -81,16 +82,31 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         xb = dc2_.Process(xb);
         feedback_  = xa;
         feedback2_ = xb;
-        // lfo_val ∈ [-1,+1]; t=0 → all chain B, t=1 → all chain A
+
+        // Equal-power trigonometric crossfade to eliminate the -3dB center volume dip
         const float t = (lfo_val + 1.0f) * 0.5f;
-        const float out = xa * t + xb * (1.0f - t);
+        const float gain_a = fast_sin(t * 1.57079633f);
+        const float gain_b = fast_sin((1.0f - t) * 1.57079633f);
+
+        const float out = xa * gain_a + xb * gain_b;
         return {out, out};
     }
 
-    // Normal path: single chain with num_stages_ stages
+    // Normal path: single chain with num_stages_ stages.
+    // Stagger coefficients slightly on alternating stages to simulate component tolerances.
+    // This spreads the notch locations, creating a warmer, woodier analog wash.
     float x = input.mono() + feedback_ * regen;
     for (int i = 0; i < num_stages_; ++i) {
-        stages_[i].SetCoeff(coeff);
+        float stage_coeff = coeff;
+        if (i & 1) {
+            stage_coeff += 0.04f * depth_mod_;
+        } else {
+            stage_coeff -= 0.04f * depth_mod_;
+        }
+        if (stage_coeff > -0.01f) stage_coeff = -0.01f;
+        if (stage_coeff < -0.99f) stage_coeff = -0.99f;
+
+        stages_[i].SetCoeff(stage_coeff);
         x = stages_[i].Process(x);
     }
     x = dc_.Process(x);

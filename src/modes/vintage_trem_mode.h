@@ -15,7 +15,10 @@ public:
 
 private:
     Lfo   lfo_;
-    float depth_ = 0.5f;  // cached params.depth for per-sample gain computation
+    float depth_ = 0.5f;
+    float crossover_l_ = 0.0f;
+    float crossover_r_ = 0.0f;
+    int   sub_mode_ = 0;
 };
 
 } // namespace pedal

@@ -59,7 +59,8 @@ void ShimmerReverb::Init() {
 
     tone_.Init();
     hold_           = false;
-    pitch_feedback_ = 0.0f;
+    pitch_fb_l_     = 0.0f;
+    pitch_fb_r_     = 0.0f;
 }
 
 void ShimmerReverb::Reset() {
@@ -70,7 +71,8 @@ void ShimmerReverb::Reset() {
     pitch_shifter_[1].Reset();
     tone_.Init();
     hold_           = false;
-    pitch_feedback_ = 0.0f;
+    pitch_fb_l_     = 0.0f;
+    pitch_fb_r_     = 0.0f;
 }
 
 void ShimmerReverb::Prepare(const ParamSet& params) {
@@ -80,9 +82,9 @@ void ShimmerReverb::Prepare(const ParamSet& params) {
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
     tone_.SetKnob(params.tone);
 
-    // param1/param2 already in semitones via PARAM1_SHIMMER / PARAM2_SHIMMER range
-    pitch_shifter_[0].SetShift(params.param1);
-    pitch_shifter_[1].SetShift(params.param2);
+    // Stagger Left and Right pitch shifts by +/-10 cents (0.10 semitones) for stereo width
+    pitch_shifter_[0].SetShift(params.param1 - 0.10f);
+    pitch_shifter_[1].SetShift(params.param2 + 0.10f);
 }
 
 StereoFrame ShimmerReverb::Process(float input, const ParamSet& params) {
@@ -91,21 +93,23 @@ StereoFrame ShimmerReverb::Process(float input, const ParamSet& params) {
 
     const float diffused = diffuser_.Process(pre);
 
-    // Combine dry diffused input with previous shimmer feedback
+    // Combine dry diffused input with previous shimmer feedback in stereo
     const float shimmer_amount = params.mod;
-    const float fdn_in = diffused + shimmer_amount * 0.5f * pitch_feedback_;
+    StereoFrame fdn_in;
+    fdn_in.left  = diffused + shimmer_amount * 0.5f * pitch_fb_l_;
+    fdn_in.right = diffused + shimmer_amount * 0.5f * pitch_fb_r_;
 
     const StereoFrame late = fdn_.Process(fdn_in);
 
-    // Pitch-shift FDN output for the next sample's feedback
-    const float mono_out = 0.5f * (late.left + late.right);
-    const float p0       = pitch_shifter_[0].Process(mono_out);
-    const float p1       = pitch_shifter_[1].Process(mono_out);
-    pitch_feedback_      = p0 + p1;
+    // Pitch-shift FDN output for the next sample's feedback.
+    // Feed Left channel output to shifter 0, and Right channel output to shifter 1.
+    pitch_fb_l_ = pitch_shifter_[0].Process(late.left);
+    pitch_fb_r_ = pitch_shifter_[1].Process(late.right);
 
+    // Blend pitch-shifted outputs directly into the left and right output channels
     const StereoFrame out{
-        tone_.Process(late.left),
-        tone_.Process(late.right)
+        tone_.Process(late.left  + shimmer_amount * pitch_fb_l_ * 0.5f),
+        tone_.Process(late.right + shimmer_amount * pitch_fb_r_ * 0.5f)
     };
     return out;
 }

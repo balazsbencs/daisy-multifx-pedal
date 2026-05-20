@@ -25,7 +25,8 @@ private:
     PitchShifter   pitch_shifter_[2];
     ToneFilter     tone_;
     bool           hold_            = false;
-    float          pitch_feedback_  = 0.0f;  // one-sample-delayed shimmer feedback
+    float          pitch_fb_l_      = 0.0f;  // one-sample-delayed shimmer feedback left
+    float          pitch_fb_r_      = 0.0f;  // one-sample-delayed shimmer feedback right
 };
 
 } // namespace pedal

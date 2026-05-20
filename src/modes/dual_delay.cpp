@@ -38,17 +38,26 @@ void DualDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame DualDelay::Process(float input, const ParamSet& params) {
-    // Left: base delay time
-    // Right: detuned by mod_dep and animated by mod_spd.
     const float lfo_val = lfo_out_;
     const float base_samps = params.time * SAMPLE_RATE;
-    const float detune_ratio = 1.0f
-                             + params.mod_dep * (0.25f + 0.25f * (0.5f + 0.5f * lfo_val));
-    float delay_r = base_samps * detune_ratio;
-    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1))
-        delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
 
-    dual_line_l.SetDelay(base_samps);
+    // Out-of-phase modulation with a tight, musical detuning depth (+/-0.5% max)
+    // and a 150-sample (~3.1ms) offset on the right channel.
+    const float mod_samps = base_samps * params.mod_dep * 0.005f;
+    float delay_l = base_samps + lfo_val * mod_samps;
+    float delay_r = base_samps + 150.0f - lfo_val * mod_samps;
+
+    if (delay_l < 1.0f) delay_l = 1.0f;
+    if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+        delay_l = static_cast<float>(MAX_DELAY_SAMPLES - 1);
+    }
+
+    if (delay_r < 1.0f) delay_r = 1.0f;
+    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+        delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
+    }
+
+    dual_line_l.SetDelay(delay_l);
     dual_line_r.SetDelay(delay_r);
 
     float wet_l = dual_line_l.Read();
@@ -57,11 +66,16 @@ StereoFrame DualDelay::Process(float input, const ParamSet& params) {
     wet_l = filter_l_.Process(wet_l);
     wet_r = filter_r_.Process(wet_r);
 
-    const float feedback_l = wet_l * params.repeats;
-    const float feedback_r = wet_r * params.repeats;
+    // Dynamic ping-pong crossfader based on grit (0.0 = parallel, 1.0 = full ping-pong)
+    const float fb_l = wet_l * params.repeats;
+    const float fb_r = wet_r * params.repeats;
+    const float pp = params.grit;
 
-    dual_line_l.Write(input + feedback_l);
-    dual_line_r.Write(input + feedback_r);
+    const float write_l = input + (1.0f - pp) * fb_l + pp * fb_r;
+    const float write_r = input + (1.0f - pp) * fb_r + pp * fb_l;
+
+    dual_line_l.Write(write_l);
+    dual_line_r.Write(write_r);
 
     wet_l = dc_l_.Process(wet_l);
     wet_r = dc_r_.Process(wet_r);

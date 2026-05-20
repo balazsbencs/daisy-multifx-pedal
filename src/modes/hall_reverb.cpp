@@ -14,10 +14,14 @@ static float DSY_SDRAM_BSS buf_diff0[143];
 static float DSY_SDRAM_BSS buf_diff1[108];
 static float DSY_SDRAM_BSS buf_diff2[380];
 static float DSY_SDRAM_BSS buf_diff3[278];
-static float DSY_SDRAM_BSS buf_fdn0[3548];
-static float DSY_SDRAM_BSS buf_fdn1[4134];
-static float DSY_SDRAM_BSS buf_fdn2[4920];
-static float DSY_SDRAM_BSS buf_fdn3[5690];
+static float DSY_SDRAM_BSS buf_fdn0[3307];
+static float DSY_SDRAM_BSS buf_fdn1[3697];
+static float DSY_SDRAM_BSS buf_fdn2[4159];
+static float DSY_SDRAM_BSS buf_fdn3[4799];
+static float DSY_SDRAM_BSS buf_fdn4[5297];
+static float DSY_SDRAM_BSS buf_fdn5[5903];
+static float DSY_SDRAM_BSS buf_fdn6[6397];
+static float DSY_SDRAM_BSS buf_fdn7[6997];
 
 static constexpr ErTap kErTaps[8] = {
     { 480,  0.78f, -0.70f},
@@ -47,20 +51,24 @@ void HallReverb::Init() {
     diffuser_.SetDiffusion(0.65f);
 
     Fdn::Config fdn_cfg;
-    fdn_cfg.n_lines    = 4;
+    fdn_cfg.n_lines     = 8;
     fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]    = buf_fdn0;
-    fdn_cfg.bufs[1]    = buf_fdn1;
-    fdn_cfg.bufs[2]    = buf_fdn2;
-    fdn_cfg.bufs[3]    = buf_fdn3;
-    fdn_cfg.delays[0]  = 3547;
-    fdn_cfg.delays[1]  = 4133;
-    fdn_cfg.delays[2]  = 4919;
-    fdn_cfg.delays[3]  = 5689;
-    for (int i = 4; i < Fdn::MAX_LINES; ++i) {
-        fdn_cfg.bufs[i]   = nullptr;
-        fdn_cfg.delays[i] = 0;
-    }
+    fdn_cfg.bufs[0]     = buf_fdn0;
+    fdn_cfg.bufs[1]     = buf_fdn1;
+    fdn_cfg.bufs[2]     = buf_fdn2;
+    fdn_cfg.bufs[3]     = buf_fdn3;
+    fdn_cfg.bufs[4]     = buf_fdn4;
+    fdn_cfg.bufs[5]     = buf_fdn5;
+    fdn_cfg.bufs[6]     = buf_fdn6;
+    fdn_cfg.bufs[7]     = buf_fdn7;
+    fdn_cfg.delays[0]   = 3307;
+    fdn_cfg.delays[1]   = 3697;
+    fdn_cfg.delays[2]   = 4159;
+    fdn_cfg.delays[3]   = 4799;
+    fdn_cfg.delays[4]   = 5297;
+    fdn_cfg.delays[5]   = 5903;
+    fdn_cfg.delays[6]   = 6397;
+    fdn_cfg.delays[7]   = 6997;
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
@@ -81,6 +89,7 @@ void HallReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetModulation(params.mod * 8.0f);
     tone_.SetKnob(params.tone);
 }
 
