@@ -7,6 +7,8 @@ using namespace pedal::delay_fx;
 
 namespace pedal {
 
+static constexpr float kStereoOffsetSamples = 150.0f;
+
 static float DSY_SDRAM_BSS filter_buf_l[MAX_DELAY_SAMPLES];
 static float DSY_SDRAM_BSS filter_buf_r[MAX_DELAY_SAMPLES];
 static DelayLineSdram       filter_line_l;
@@ -41,9 +43,9 @@ void FilterDelay::Prepare(const ParamSet& params) {
     
     // Left delay
     filter_line_l.SetDelay(delay_samps);
-    
+
     // Right delay offset by 150 samples (~3.1ms)
-    float delay_r = delay_samps + 150.0f;
+    float delay_r = delay_samps + kStereoOffsetSamples;
     if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
         delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
     }

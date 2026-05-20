@@ -6,6 +6,8 @@ using namespace pedal::delay_fx;
 
 namespace pedal {
 
+static constexpr float kStereoOffsetSamples = 150.0f;
+
 static float DSY_SDRAM_BSS digital_buf_l[MAX_DELAY_SAMPLES];
 static float DSY_SDRAM_BSS digital_buf_r[MAX_DELAY_SAMPLES];
 static DelayLineSdram       digital_line_l;
@@ -46,7 +48,7 @@ StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
     // Out-of-phase LFO modulation and a 150-sample (~3.1ms) delay offset on the Right
     // channel to create a wide stereo field.
     float delay_l = base_samps + lfo_val * mod_samps;
-    float delay_r = base_samps + 150.0f - lfo_val * mod_samps;
+    float delay_r = base_samps + kStereoOffsetSamples - lfo_val * mod_samps;
 
     if (delay_l < 1.0f) delay_l = 1.0f;
     if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
