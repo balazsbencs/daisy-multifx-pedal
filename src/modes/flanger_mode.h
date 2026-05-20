@@ -38,7 +38,7 @@ struct DryDelay {
     }
 
     float Read(size_t delay_samples) const {
-        size_t read_ptr = (write + 14 - delay_samples) & 15;
+        size_t read_ptr = (write + 15 - delay_samples) & 15;
         return buf[read_ptr];
     }
 };
