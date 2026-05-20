@@ -183,7 +183,7 @@ jobs:
 
       - name: Build Plugins
         run: |
-          cmake --build juce_plugin/build --config Release
+          cmake --build juce_plugin/build --config Release --verbose
 
       - name: Package Plugins (macOS)
         if: matrix.os == 'macos-latest'

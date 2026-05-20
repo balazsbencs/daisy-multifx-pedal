@@ -18,6 +18,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
+# In CI, the system VST3/AU directories are not writable — skip the copy.
+if(DEFINED ENV{CI})
+    set(JUCE_COPY_PLUGIN FALSE)
+else()
+    set(JUCE_COPY_PLUGIN TRUE)
+endif()
+
 juce_add_plugin(DaisyMultiFx
     VERSION "1.0.0"
     COMPANY_NAME "Daisy"
@@ -26,7 +33,7 @@ juce_add_plugin(DaisyMultiFx
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-    COPY_PLUGIN_AFTER_BUILD FALSE
+    COPY_PLUGIN_AFTER_BUILD ${JUCE_COPY_PLUGIN}
     PLUGIN_NAME "DaisyMultiFx"
     PRODUCT_NAME "DaisyMultiFx"
     FORMATS VST3 AU Standalone
@@ -37,7 +44,7 @@ target_sources(DaisyMultiFx PRIVATE
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
-    
+
     # Original DSP files
     ../src/dsp/delay_line_sdram.cpp
     ../src/dsp/envelope_follower.cpp
@@ -86,6 +93,7 @@ target_compile_definitions(DaisyMultiFx PRIVATE
 
 target_link_libraries(DaisyMultiFx PRIVATE
     juce::juce_audio_processors
+    juce::juce_audio_utils
     juce::juce_gui_extra
     juce::juce_gui_basics
     juce::juce_graphics
