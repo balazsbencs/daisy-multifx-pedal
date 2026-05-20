@@ -274,7 +274,7 @@ DaisyMultiFxAudioProcessorEditor::DaisyMultiFxAudioProcessorEditor (DaisyMultiFx
             addAndMakeVisible(section.syncButton);
             section.syncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.apvts, syncParamId, section.syncButton);
 
-            section.syncNoteSelector.addItemList(juce::StringArray{"1/32", "1/16t", "1/16", "1/8t", "1/8", "1/8d", "1/4t", "1/4", "1/4d", "1/2", "1/1"}, 1);
+            section.syncNoteSelector.addItemList(juce::StringArray{"1/32", "1/16t", "1/16", "1/8t", "1/8", "1/4t", "1/8d", "1/4", "1/4d", "1/2", "1/1"}, 1);
             if (title == "MODULATION") {
                 section.syncNoteSelector.clear();
                 section.syncNoteSelector.addItemList(juce::StringArray{"8 Bars", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16"}, 1);
@@ -372,7 +372,7 @@ DaisyMultiFxAudioProcessorEditor::DaisyMultiFxAudioProcessorEditor (DaisyMultiFx
         bool sync = processor.apvts.getRawParameterValue("delayTempoSync")->load() > 0.5f;
         if (sync) {
             int noteDiv = (int)processor.apvts.getRawParameterValue("delayNoteDiv")->load();
-            const char* divs[] = {"1/32", "1/16t", "1/16", "1/8t", "1/8", "1/8d", "1/4t", "1/4", "1/4d", "1/2", "1/1"};
+            const char* divs[] = {"1/32", "1/16t", "1/16", "1/8t", "1/8", "1/4t", "1/8d", "1/4", "1/4d", "1/2", "1/1"};
             return juce::String(divs[noteDiv]);
         }
         auto mode = static_cast<DelayModeId>((int)processor.apvts.getRawParameterValue("modeDelay")->load());
