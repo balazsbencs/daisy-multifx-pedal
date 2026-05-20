@@ -12,6 +12,9 @@ const ParamRange& get_param_range(ReverbModeId mode, ParamId param) {
                 default:                   return default_ranges::DECAY;
             }
         case ParamId::PreDelay:  return default_ranges::PRE_DELAY;
+        // TODO: when ReverbModeId::Shimmer is added to the enum, override Param1/Param2 here:
+        //   if (mode == ReverbModeId::Shimmer && param == ParamId::Param1) return default_ranges::PARAM1_SHIMMER;
+        //   if (mode == ReverbModeId::Shimmer && param == ParamId::Param2) return default_ranges::PARAM2_SHIMMER;
         case ParamId::Param1:    return default_ranges::PARAM1;
         case ParamId::Param2:    return default_ranges::PARAM2;
         case ParamId::Mix:  return default_ranges::MIX;
