@@ -21,7 +21,7 @@ inline float apply_curve(float t, float curve) {
     else              exp = 1.0f / (1.0f - curve);
     // Fast paths for the two most common cases
     if (exp == 2.0f)  return t * t;
-    if (exp == 0.5f)  return __builtin_sqrtf(t);
+    if (exp == 0.5f)  return sqrtf(t);
     // General case — hardware FPU makes powf cheap on Cortex-M7
     return powf(t, exp);
 }
