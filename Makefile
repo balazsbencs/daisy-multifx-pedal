@@ -77,3 +77,39 @@ pad-qspi-bin: $(BUILD_DIR)/$(TARGET).bin
 		truncate -s 131073 $<; \
 		echo "  PADDED  $$((sz)) -> 131073 bytes (QSPI sector alignment)"; \
 	fi
+
+# ── VST / AU Plugin Desktop Build & Install ───────────────────────────────────
+.PHONY: vst-build vst-install vst-clean
+
+vst-build:
+	@echo "Configuring and building desktop plugin..."
+	@mkdir -p juce_plugin/build
+	@cd juce_plugin/build && env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u LDFLAGS cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 ..
+	@cd juce_plugin/build && env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u LDFLAGS cmake --build . --config Release
+
+vst-install: vst-build
+	@echo "Installing VST3 and AU components to system folders..."
+	@mkdir -p ~/Library/Audio/Plug-Ins/VST3
+	@mkdir -p ~/Library/Audio/Plug-Ins/Components
+	@# Copy VST3 plugin if built
+	@if [ -d juce_plugin/build/DaisyMultiFx_artefacts/Release/VST3/DaisyMultiFx.vst3 ]; then \
+		cp -R juce_plugin/build/DaisyMultiFx_artefacts/Release/VST3/DaisyMultiFx.vst3 ~/Library/Audio/Plug-Ins/VST3/; \
+		echo "Installed VST3 to ~/Library/Audio/Plug-Ins/VST3/DaisyMultiFx.vst3"; \
+	 elif [ -d juce_plugin/build/DaisyMultiFx_artefacts/VST3/DaisyMultiFx.vst3 ]; then \
+		cp -R juce_plugin/build/DaisyMultiFx_artefacts/VST3/DaisyMultiFx.vst3 ~/Library/Audio/Plug-Ins/VST3/; \
+		echo "Installed VST3 to ~/Library/Audio/Plug-Ins/VST3/DaisyMultiFx.vst3"; \
+	 fi
+	@# Copy AU component if built
+	@if [ -d juce_plugin/build/DaisyMultiFx_artefacts/Release/AU/DaisyMultiFx.component ]; then \
+		cp -R juce_plugin/build/DaisyMultiFx_artefacts/Release/AU/DaisyMultiFx.component ~/Library/Audio/Plug-Ins/Components/; \
+		echo "Installed AU to ~/Library/Audio/Plug-Ins/Components/DaisyMultiFx.component"; \
+	 elif [ -d juce_plugin/build/DaisyMultiFx_artefacts/AU/DaisyMultiFx.component ]; then \
+		cp -R juce_plugin/build/DaisyMultiFx_artefacts/AU/DaisyMultiFx.component ~/Library/Audio/Plug-Ins/Components/; \
+		echo "Installed AU to ~/Library/Audio/Plug-Ins/Components/DaisyMultiFx.component"; \
+	 fi
+	@echo "Installation complete!"
+
+vst-clean:
+	@echo "Cleaning desktop plugin build..."
+	@rm -rf juce_plugin/build
+

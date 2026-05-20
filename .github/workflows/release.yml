@@ -156,11 +156,65 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────────────────────
-  # 3. Tag, generate changelog, publish GitHub release
+  # 3. Build VST/AU plugins for desktop (macOS & Windows)
+  # ─────────────────────────────────────────────────────────────
+  build-desktop:
+    name: Build Desktop Plugins (${{ matrix.os }})
+    needs: version
+    if: needs.version.outputs.has_release == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          cmake -B juce_plugin/build -S juce_plugin -DCMAKE_BUILD_TYPE=Release ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"' || '' }}
+
+      - name: Build Plugins
+        run: |
+          cmake --build juce_plugin/build --config Release
+
+      - name: Package Plugins (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          mkdir -p "${{ github.workspace }}/dist"
+          cd juce_plugin/build/DaisyMultiFx_artefacts
+          if [ -d Release ]; then cd Release; fi
+          zip -r "${{ github.workspace }}/dist/daisy-multi-fx-mac-v${VERSION}.zip" VST3/ AU/ Standalone/
+
+      - name: Package Plugins (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          VERSION: ${{ needs.version.outputs.new_version }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/dist"
+          cd juce_plugin/build/DaisyMultiFx_artefacts
+          if (Test-Path Release) { cd Release }
+          Compress-Archive -Path VST3, Standalone -DestinationPath "${{ github.workspace }}/dist/daisy-multi-fx-windows-v$env:VERSION.zip"
+
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-plugins-${{ matrix.os }}
+          path: dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # 4. Tag, generate changelog, publish GitHub release
   # ─────────────────────────────────────────────────────────────
   release:
     name: Publish Release
-    needs: [version, build-firmware]
+    needs: [version, build-firmware, build-desktop]
     if: needs.version.outputs.has_release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -196,6 +250,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: firmware
+          path: dist/
+
+      - name: Download macOS VST artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-plugins-macos-latest
+          path: dist/
+
+      - name: Download Windows VST artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-plugins-windows-latest
           path: dist/
 
       - name: Create GitHub Release
