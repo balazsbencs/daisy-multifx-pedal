@@ -57,6 +57,7 @@ private:
     ReverbMode* active_reverb_ = nullptr;
 
     // Sample counter for the 48-sample block rate
+    static constexpr int kHardwareBlockSize = 48;
     int sampleCounter_ = 0;
 
     // Dry/wet coefficients cached per stage

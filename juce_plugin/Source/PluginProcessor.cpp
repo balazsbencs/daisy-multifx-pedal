@@ -369,7 +369,7 @@ void DaisyMultiFxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         outR[i] = s3.right;
 
         // Advance sample counter (modulo 48)
-        sampleCounter_ = (sampleCounter_ + 1) % 48;
+        sampleCounter_ = (sampleCounter_ + 1) % kHardwareBlockSize;
     }
 }
 

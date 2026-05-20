@@ -6,6 +6,8 @@ using namespace pedal::delay_fx;
 
 namespace pedal {
 
+static constexpr float kStereoOffsetSamples = 150.0f;
+
 static float DSY_SDRAM_BSS dual_buf_l[MAX_DELAY_SAMPLES];
 static float DSY_SDRAM_BSS dual_buf_r[MAX_DELAY_SAMPLES];
 static DelayLineSdram       dual_line_l;
@@ -45,7 +47,7 @@ StereoFrame DualDelay::Process(float input, const ParamSet& params) {
     // and a 150-sample (~3.1ms) offset on the right channel.
     const float mod_samps = base_samps * params.mod_dep * 0.005f;
     float delay_l = base_samps + lfo_val * mod_samps;
-    float delay_r = base_samps + 150.0f - lfo_val * mod_samps;
+    float delay_r = base_samps + kStereoOffsetSamples - lfo_val * mod_samps;
 
     if (delay_l < 1.0f) delay_l = 1.0f;
     if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {

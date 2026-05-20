@@ -6,6 +6,8 @@ using namespace pedal::delay_fx;
 
 namespace pedal {
 
+static constexpr float kStereoOffsetSamples = 150.0f;
+
 static float DSY_SDRAM_BSS tape_buf[MAX_DELAY_SAMPLES];
 static DelayLineSdram       tape_line;
 
@@ -57,7 +59,7 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     float wet_l = tape_line.Read();
 
     // Read Right tap (secondary play head, offset by 150 samples / ~3.1ms)
-    float delay_r = delay_samps + 150.0f;
+    float delay_r = delay_samps + kStereoOffsetSamples;
     if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
         delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
     }
