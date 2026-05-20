@@ -60,6 +60,11 @@ private:
     static constexpr int kHardwareBlockSize = 48;
     int sampleCounter_ = 0;
 
+    // ParamSet snapshots, rebuilt every kHardwareBlockSize samples
+    mod_fx::ParamSet    mod_snap_{};
+    delay_fx::ParamSet  dly_snap_{};
+    reverb_fx::ParamSet rev_snap_{};
+
     // Dry/wet coefficients cached per stage
     float mod_dry_ = 1.0f, mod_wet_ = 0.0f, mod_norm_ = 1.0f;
     float dly_dry_ = 1.0f, dly_wet_ = 0.0f, dly_norm_ = 1.0f;
