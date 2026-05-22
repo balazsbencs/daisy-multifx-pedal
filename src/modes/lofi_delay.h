@@ -18,12 +18,14 @@ private:
     DcBlocker dc_;
     float     lfo_out_ = 0.0f;
 
-    // Sample-rate reduction and bitcrush state
     float    held_sample_  = 0.0f;
-    float    sr_counter_   = 0.0f;  // accumulator for decimation
+    float    sr_counter_   = 0.0f;
     float    decimate_     = 1.0f;
     float    bit_scale_    = 65536.0f;
     int      bits_         = 16;
+
+    float    aa_lp_        = 0.0f;
+    float    delay_smooth_ = 0.0f;
 };
 
 } // namespace pedal
