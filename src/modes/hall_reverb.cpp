@@ -88,8 +88,10 @@ void HallReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetDamping(0.15f + params.tone * 0.35f);
     fdn_.SetModulation(params.mod * 8.0f);
+    // Param1 controls pre-diffusion density (0 = minimal, 1 = maximum)
+    diffuser_.SetDiffusion(0.35f + params.param1 * 0.45f);
     tone_.SetKnob(params.tone);
 }
 
@@ -99,7 +101,9 @@ StereoFrame HallReverb::Process(float input, const ParamSet& /*params*/) {
 
     const StereoFrame er = er_.Process(pre);
 
-    const float diffused = diffuser_.Process(0.5f * (er.left + er.right));
+    // Weighted asymmetric sum preserves spatial impression from ER stage
+    // rather than discarding it with a symmetric 50/50 collapse.
+    const float diffused = diffuser_.Process(0.65f * er.left + 0.35f * er.right);
 
     const StereoFrame late = fdn_.Process(diffused);
 
