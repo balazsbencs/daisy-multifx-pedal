@@ -22,6 +22,7 @@ void DuckDelay::Init() {
 void DuckDelay::Reset() {
     duck_line.Reset();
     dc_.Init();
+    delay_smooth_ = 0.0f;
 }
 
 void DuckDelay::Prepare(const ParamSet& params) {
@@ -31,31 +32,32 @@ void DuckDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame DuckDelay::Process(float input, const ParamSet& params) {
-    const float lfo_val    = lfo_out_;
-    const float base_samps = params.time * SAMPLE_RATE;
-    float delay_samps      = base_samps + lfo_val * (params.mod_dep * 15.0f);
-    if (delay_samps < 1.0f) {
+    static constexpr float kDelaySlew = 0.001f;
+    static constexpr float kThresh    = 0.10f;
+
+    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    const float lfo_val   = lfo_out_;
+    float delay_samps     = delay_smooth_ + lfo_val * (params.mod_dep * 15.0f);
+    if (delay_samps < 1.0f)
         delay_samps = 1.0f;
-    }
-    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_samps = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
     duck_line.SetDelay(delay_samps);
 
-    // grit controls duck threshold depth: 0=no duck, 1=full duck
-    const float env        = follower_.Process(input);
-    float duck_amount      = 1.0f - env * params.grit * 2.0f;
-    if (duck_amount < 0.0f) duck_amount = 0.0f;
-    if (duck_amount > 1.0f) duck_amount = 1.0f;
+    // Soft-knee duck: below 0.5*thresh transparent, above 1.5*thresh fully ducked
+    const float env = follower_.Process(input);
+    float t = (env - kThresh * 0.5f) / kThresh;
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    t = t * t * (3.0f - 2.0f * t);          // smoothstep
+    const float duck_amount = 1.0f - t * params.grit;
 
     float wet = duck_line.Read();
     wet = filter_.Process(wet);
 
-    // Feedback is taken BEFORE ducking, so the delay history is preserved
     const float feedback = wet * params.repeats;
     duck_line.Write(input + feedback);
 
-    // Duck the output only
     wet *= duck_amount;
     wet = dc_.Process(wet);
 
