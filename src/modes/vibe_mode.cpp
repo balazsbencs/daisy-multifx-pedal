@@ -10,7 +10,7 @@ static constexpr float TWO_PI = 6.28318530717958647692f;
 // LFO phase offsets per stage (radians): models the angular position of each
 // LDR around the lamp in the original Univox circuit. Stages sweep in a
 // rolling cascade — notches chase each other through the spectrum.
-static constexpr float kStagePhase[4]  = {0.0f, 0.384f, 0.733f, 1.100f}; // 0°, 22°, 42°, 63°
+static constexpr float kStagePhase[4]  = {0.0f, 0.5236f, 1.2217f, 1.9199f}; // 0°, 30°, 70°, 110°
 
 // Allpass coefficient at the dark-lamp extreme (high LDR resistance = low notch).
 // Staggered to produce four distinct notch regions across the audio band.
@@ -18,7 +18,7 @@ static constexpr float kStageCenter[4] = {-0.88f, -0.72f, -0.55f, -0.35f};
 
 // Maximum coefficient swing from center at full depth (bright lamp = high freq).
 // Higher stages sweep a wider range, matching the original's non-uniform LDR spacing.
-static constexpr float kStageSweep[4]  = {0.06f, 0.11f, 0.17f, 0.22f};
+static constexpr float kStageSweep[4]  = {0.10f, 0.20f, 0.30f, 0.42f};
 
 // AM optical coupler sits ~90° ahead of stage 0 in the original circuit.
 static constexpr float kAmPhaseOffset = 1.5707963f; // π/2
