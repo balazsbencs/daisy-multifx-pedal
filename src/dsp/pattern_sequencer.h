@@ -11,7 +11,7 @@ class PatternSequencer {
 public:
     void Reset() {
         sample_counter_ = 0;
-        current_step_   = 0;
+        current_step_   = 15;  // next Process() increments to 0 → step 0 fires first
         step_active_    = true;
     }
 
@@ -69,7 +69,7 @@ private:
 
     int      period_         = static_cast<int>(SAMPLE_RATE);
     int      sample_counter_ = 0;
-    int      current_step_   = 0;
+    int      current_step_   = 15;  // next Process() increments to 0 → step 0 fires first
     int      pattern_idx_    = 0;
     int      steps_per_beat_ = 4;
     bool     step_active_    = true;
