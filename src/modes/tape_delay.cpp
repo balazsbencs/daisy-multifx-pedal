@@ -32,6 +32,7 @@ void TapeDelay::Reset() {
     dc_r_.Init();
     env_state_ = 0.0f;
     tape_lp_ = 0.0f;
+    delay_smooth_ = 0.0f;
 }
 
 void TapeDelay::Prepare(const ParamSet& params) {
@@ -42,16 +43,15 @@ void TapeDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
-    const float lfo_val = lfo_out_;
+    static constexpr float kDelaySlew = 0.001f;
 
-    // wow/flutter: max deviation = mod_dep * 50 samples
-    const float flutter     = params.mod_dep * 50.0f;
-    const float base_samps  = params.time * SAMPLE_RATE;
-    float delay_samps       = base_samps + lfo_val * flutter;
+    const float lfo_val = lfo_out_;
+    const float flutter = params.mod_dep * 50.0f;
+    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    float delay_samps = delay_smooth_ + lfo_val * flutter;
     if (delay_samps < 1.0f) delay_samps = 1.0f;
-    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_samps = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
 
     tape_line.SetDelay(delay_samps);
 
