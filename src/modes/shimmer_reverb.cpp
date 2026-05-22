@@ -9,8 +9,8 @@ namespace pedal {
 namespace {
 
 static float DSY_SDRAM_BSS buf_pre_delay[24000];
-static float DSY_SDRAM_BSS buf_diff0[143];
-static float DSY_SDRAM_BSS buf_diff1[108];
+static float DSY_SDRAM_BSS buf_diff0[Diffuser::kDelays[0] + 1];
+static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[2730];
@@ -29,7 +29,7 @@ void ShimmerReverb::Init() {
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
     };
-    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
+    const size_t diff_sizes[Diffuser::STAGES] = { Diffuser::kDelays[0] + 1, Diffuser::kDelays[1] + 1, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser_.Init(diff_bufs, diff_sizes);
     diffuser_.SetDiffusion(0.65f);
 
