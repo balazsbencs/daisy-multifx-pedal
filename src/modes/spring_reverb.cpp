@@ -9,29 +9,29 @@ namespace pedal {
 
 namespace {
 
-// Spring 0 allpass buffers (base delays: 17,23,31,43,59,79 → buf = delay+1)
-static float DSY_SDRAM_BSS s0_ap0[18];
-static float DSY_SDRAM_BSS s0_ap1[24];
-static float DSY_SDRAM_BSS s0_ap2[32];
-static float DSY_SDRAM_BSS s0_ap3[44];
-static float DSY_SDRAM_BSS s0_ap4[60];
-static float DSY_SDRAM_BSS s0_ap5[80];
+// Spring 0 allpass buffers — ×10 scale for realistic dispersive drip (170–790 samples = 3.5–16.5ms)
+static float DSY_SDRAM_BSS s0_ap0[171];
+static float DSY_SDRAM_BSS s0_ap1[231];
+static float DSY_SDRAM_BSS s0_ap2[311];
+static float DSY_SDRAM_BSS s0_ap3[431];
+static float DSY_SDRAM_BSS s0_ap4[591];
+static float DSY_SDRAM_BSS s0_ap5[791];
 
-// Spring 1 allpass buffers (×1.07)
-static float DSY_SDRAM_BSS s1_ap0[19];
-static float DSY_SDRAM_BSS s1_ap1[26];
-static float DSY_SDRAM_BSS s1_ap2[34];
-static float DSY_SDRAM_BSS s1_ap3[47];
-static float DSY_SDRAM_BSS s1_ap4[64];
-static float DSY_SDRAM_BSS s1_ap5[85];
+// Spring 1 allpass buffers (×1.07 of spring 0)
+static float DSY_SDRAM_BSS s1_ap0[183];
+static float DSY_SDRAM_BSS s1_ap1[248];
+static float DSY_SDRAM_BSS s1_ap2[333];
+static float DSY_SDRAM_BSS s1_ap3[462];
+static float DSY_SDRAM_BSS s1_ap4[633];
+static float DSY_SDRAM_BSS s1_ap5[846];
 
-// Spring 2 allpass buffers (×1.13)
-static float DSY_SDRAM_BSS s2_ap0[21];
-static float DSY_SDRAM_BSS s2_ap1[27];
-static float DSY_SDRAM_BSS s2_ap2[36];
-static float DSY_SDRAM_BSS s2_ap3[50];
-static float DSY_SDRAM_BSS s2_ap4[67];
-static float DSY_SDRAM_BSS s2_ap5[90];
+// Spring 2 allpass buffers (×1.13 of spring 0)
+static float DSY_SDRAM_BSS s2_ap0[193];
+static float DSY_SDRAM_BSS s2_ap1[261];
+static float DSY_SDRAM_BSS s2_ap2[351];
+static float DSY_SDRAM_BSS s2_ap3[487];
+static float DSY_SDRAM_BSS s2_ap4[668];
+static float DSY_SDRAM_BSS s2_ap5[894];
 
 // Comb buffers per spring
 static float DSY_SDRAM_BSS s0_comb[4001];
@@ -41,18 +41,18 @@ static float DSY_SDRAM_BSS s2_comb[4521];
 } // namespace
 
 // Base allpass delays (spring 0)
-static constexpr size_t kApDelays0[6] = { 17, 23, 31, 43, 59, 79 };
+static constexpr size_t kApDelays0[6] = { 170, 230, 310, 430, 590, 790 };
 // g values descending
 static constexpr float  kApG[6]       = { 0.70f, 0.65f, 0.60f, 0.55f, 0.50f, 0.45f };
 // Spring 1 allpass delays (×1.07, rounded)
-static constexpr size_t kApDelays1[6] = { 18, 25, 33, 46, 63, 85 };
+static constexpr size_t kApDelays1[6] = { 182, 247, 332, 461, 632, 845 };
 // Spring 2 allpass delays (×1.13, rounded)
-static constexpr size_t kApDelays2[6] = { 19, 26, 35, 49, 67, 89 };
+static constexpr size_t kApDelays2[6] = { 192, 260, 350, 486, 667, 893 };
 
 void SpringReverb::Init() {
     // Spring 0
     float* sp0_bufs[6] = { s0_ap0, s0_ap1, s0_ap2, s0_ap3, s0_ap4, s0_ap5 };
-    const size_t sp0_sizes[6] = { 18, 24, 32, 44, 60, 80 };
+    const size_t sp0_sizes[6] = { 171, 231, 311, 431, 591, 791 };
     for (int s = 0; s < 6; ++s) {
         ap_[0][s].Init(sp0_bufs[s], sp0_sizes[s]);
         ap_[0][s].SetDelay(kApDelays0[s]);
@@ -62,7 +62,7 @@ void SpringReverb::Init() {
 
     // Spring 1
     float* sp1_bufs[6] = { s1_ap0, s1_ap1, s1_ap2, s1_ap3, s1_ap4, s1_ap5 };
-    const size_t sp1_sizes[6] = { 19, 26, 34, 47, 64, 85 };
+    const size_t sp1_sizes[6] = { 183, 248, 333, 462, 633, 846 };
     for (int s = 0; s < 6; ++s) {
         ap_[1][s].Init(sp1_bufs[s], sp1_sizes[s]);
         ap_[1][s].SetDelay(kApDelays1[s]);
@@ -72,7 +72,7 @@ void SpringReverb::Init() {
 
     // Spring 2
     float* sp2_bufs[6] = { s2_ap0, s2_ap1, s2_ap2, s2_ap3, s2_ap4, s2_ap5 };
-    const size_t sp2_sizes[6] = { 21, 27, 36, 50, 67, 90 };
+    const size_t sp2_sizes[6] = { 193, 261, 351, 487, 668, 894 };
     for (int s = 0; s < 6; ++s) {
         ap_[2][s].Init(sp2_bufs[s], sp2_sizes[s]);
         ap_[2][s].SetDelay(kApDelays2[s]);
