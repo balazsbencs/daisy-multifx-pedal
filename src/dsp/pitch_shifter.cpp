@@ -35,11 +35,26 @@ void PitchShifter::SetShift(float semitones) {
 float PitchShifter::ReadInterp(float pos) const {
     const float sz = static_cast<float>(buf_size_);
     while (pos >= sz) pos -= sz;
+    while (pos < 0.0f) pos += sz;
 
-    const size_t i0   = static_cast<size_t>(pos);
-    const float  frac = pos - static_cast<float>(i0);
-    const size_t i1   = (i0 + 1 < buf_size_) ? i0 + 1 : 0;
-    return buf_[i0] * (1.0f - frac) + buf_[i1] * frac;
+    // 4-point Catmull-Rom / Hermite cubic — same kernel as DelayLineSdram.
+    // Requires at least 2 samples before and after the read point.
+    // Clamp so the stencil [i-1, i, i+1, i+2] never goes out of bounds.
+    size_t i = static_cast<size_t>(pos);
+    if (i < 1) i = 1;
+    if (i >= buf_size_ - 2) i = buf_size_ - 3;
+    const float frac = pos - static_cast<float>(i);
+
+    const float xm1 = buf_[(i - 1)];
+    const float x0  = buf_[i];
+    const float x1  = buf_[(i + 1 < buf_size_) ? i + 1 : 0];
+    const float x2  = buf_[(i + 2 < buf_size_) ? i + 2 : 1];
+
+    // Horner's method evaluation of the cubic.
+    const float c1 =  0.5f * (x1 - xm1);
+    const float c2 =  xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+    const float c3 = -0.5f * xm1 + 1.5f * x0 - 1.5f * x1 + 0.5f * x2;
+    return x0 + frac * (c1 + frac * (c2 + frac * c3));
 }
 
 float PitchShifter::Process(float input) {
