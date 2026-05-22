@@ -15,7 +15,7 @@ static float DSY_SDRAM_BSS s0_ap1[231];
 static float DSY_SDRAM_BSS s0_ap2[311];
 static float DSY_SDRAM_BSS s0_ap3[431];
 static float DSY_SDRAM_BSS s0_ap4[591];
-static float DSY_SDRAM_BSS s0_ap5[791];
+static float DSY_SDRAM_BSS s0_ap5[793];
 
 // Spring 1 allpass buffers (×1.07 of spring 0)
 static float DSY_SDRAM_BSS s1_ap0[183];
@@ -23,7 +23,7 @@ static float DSY_SDRAM_BSS s1_ap1[248];
 static float DSY_SDRAM_BSS s1_ap2[333];
 static float DSY_SDRAM_BSS s1_ap3[462];
 static float DSY_SDRAM_BSS s1_ap4[633];
-static float DSY_SDRAM_BSS s1_ap5[846];
+static float DSY_SDRAM_BSS s1_ap5[848];
 
 // Spring 2 allpass buffers (×1.13 of spring 0)
 static float DSY_SDRAM_BSS s2_ap0[193];
@@ -31,7 +31,7 @@ static float DSY_SDRAM_BSS s2_ap1[261];
 static float DSY_SDRAM_BSS s2_ap2[351];
 static float DSY_SDRAM_BSS s2_ap3[487];
 static float DSY_SDRAM_BSS s2_ap4[668];
-static float DSY_SDRAM_BSS s2_ap5[894];
+static float DSY_SDRAM_BSS s2_ap5[896];
 
 // Comb buffers per spring
 static float DSY_SDRAM_BSS s0_comb[4001];
@@ -52,7 +52,7 @@ static constexpr size_t kApDelays2[6] = { 192, 260, 350, 486, 667, 893 };
 void SpringReverb::Init() {
     // Spring 0
     float* sp0_bufs[6] = { s0_ap0, s0_ap1, s0_ap2, s0_ap3, s0_ap4, s0_ap5 };
-    const size_t sp0_sizes[6] = { 171, 231, 311, 431, 591, 791 };
+    const size_t sp0_sizes[6] = { 171, 231, 311, 431, 591, 793 };
     for (int s = 0; s < 6; ++s) {
         ap_[0][s].Init(sp0_bufs[s], sp0_sizes[s]);
         ap_[0][s].SetDelay(kApDelays0[s]);
@@ -62,7 +62,7 @@ void SpringReverb::Init() {
 
     // Spring 1
     float* sp1_bufs[6] = { s1_ap0, s1_ap1, s1_ap2, s1_ap3, s1_ap4, s1_ap5 };
-    const size_t sp1_sizes[6] = { 183, 248, 333, 462, 633, 846 };
+    const size_t sp1_sizes[6] = { 183, 248, 333, 462, 633, 848 };
     for (int s = 0; s < 6; ++s) {
         ap_[1][s].Init(sp1_bufs[s], sp1_sizes[s]);
         ap_[1][s].SetDelay(kApDelays1[s]);
@@ -72,7 +72,7 @@ void SpringReverb::Init() {
 
     // Spring 2
     float* sp2_bufs[6] = { s2_ap0, s2_ap1, s2_ap2, s2_ap3, s2_ap4, s2_ap5 };
-    const size_t sp2_sizes[6] = { 193, 261, 351, 487, 668, 894 };
+    const size_t sp2_sizes[6] = { 193, 261, 351, 487, 668, 896 };
     for (int s = 0; s < 6; ++s) {
         ap_[2][s].Init(sp2_bufs[s], sp2_sizes[s]);
         ap_[2][s].SetDelay(kApDelays2[s]);
