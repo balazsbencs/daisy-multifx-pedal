@@ -82,6 +82,7 @@ void RoomReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
+    fdn_.SetDamping(0.50f - params.tone * 0.35f);
     fdn_.SetModulation(params.mod * 8.0f);
     diffuser_.SetDiffusion(params.param2);
     tone_.SetKnob(params.tone);
