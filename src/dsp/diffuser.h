@@ -4,7 +4,10 @@
 namespace pedal {
 
 namespace detail {
-constexpr size_t kDiffuserDelays[4] = {142, 107, 379, 277};
+// Original: {142, 107, 379, 277} — max 7.9 ms, too short for transient blur.
+// Updated: two longer stages (14 ms, 8.6 ms) for meaningful smear depth.
+// All values are mutually coprime to avoid periodic coloration.
+constexpr size_t kDiffuserDelays[4] = {142, 107, 672, 413};
 } // namespace detail
 
 // 4-stage allpass cascade for smearing transients.
@@ -23,18 +26,25 @@ public:
         for (auto& s : stages_) s.Reset();
     }
 
-    // d: 0..1 → allpass g coefficient 0..0.7
-    void SetDiffusion(float d) { g_ = d * 0.7f; }
+    // d: 0..1
+    // Outer stages (0,1) use lower g to reduce spectral coloration.
+    // Inner stages (2,3) use slightly higher g for better diffusion depth.
+    void SetDiffusion(float d) {
+        g_[0] = 0.50f + d * 0.10f;  // 0.50 – 0.60
+        g_[1] = 0.50f + d * 0.10f;  // 0.50 – 0.60
+        g_[2] = 0.55f + d * 0.15f;  // 0.55 – 0.70
+        g_[3] = 0.55f + d * 0.15f;  // 0.55 – 0.70
+    }
 
     float Process(float input) {
         float s = input;
-        for (auto& stage : stages_) s = stage.Process(s, g_);
+        for (int i = 0; i < STAGES; ++i) s = stages_[i].Process(s, g_[i]);
         return s;
     }
 
 private:
     DelayAllpassFilter stages_[STAGES];
-    float              g_ = 0.5f;
+    float              g_[STAGES] = {0.55f, 0.55f, 0.60f, 0.60f};
 };
 
 } // namespace pedal
