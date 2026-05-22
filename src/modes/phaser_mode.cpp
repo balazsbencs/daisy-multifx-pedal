@@ -53,16 +53,12 @@ void PhaserMode::Prepare(const ParamSet& params) {
 StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
     const float regen = params.p1 * 0.95f;
 
-    // Per-sample LFO values for smooth allpass sweep.
-    const float lfo_val = lfo_.Process();
-    float coeff = center_ + depth_mod_ * lfo_val;
-    if (coeff > -0.01f) coeff = -0.01f;
-    if (coeff < -0.99f) coeff = -0.99f;
-
     if (barber_pole_) {
-        // Two independent 4-stage chains with quadrature LFOs.
-        // Crossfade based on lfo_val so one chain's sweep hands off to the other,
-        // creating the infinite rising/falling illusion.
+        const float lfo_val = lfo_.Process();
+        float coeff = center_ + depth_mod_ * lfo_val;
+        if (coeff > -0.01f) coeff = -0.01f;
+        if (coeff < -0.99f) coeff = -0.99f;
+
         const float lfo_val2 = lfo2_.Process();
         float coeff2 = center_ + depth_mod_ * lfo_val2;
         if (coeff2 > -0.01f) coeff2 = -0.01f;
@@ -83,7 +79,6 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         feedback_  = xa;
         feedback2_ = xb;
 
-        // Equal-power trigonometric crossfade to eliminate the -3dB center volume dip
         const float t = (lfo_val + 1.0f) * 0.5f;
         const float gain_a = fast_sin(t * 1.57079633f);
         const float gain_b = fast_sin((1.0f - t) * 1.57079633f);
@@ -92,26 +87,53 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         return {out, out};
     }
 
-    // Normal path: single chain with num_stages_ stages.
-    // Stagger coefficients slightly on alternating stages to simulate component tolerances.
-    // This spreads the notch locations, creating a warmer, woodier analog wash.
-    float x = input.mono() + feedback_ * regen;
-    for (int i = 0; i < num_stages_; ++i) {
-        float stage_coeff = coeff;
-        if (i & 1) {
-            stage_coeff += 0.04f * depth_mod_;
-        } else {
-            stage_coeff -= 0.04f * depth_mod_;
-        }
-        if (stage_coeff > -0.01f) stage_coeff = -0.01f;
-        if (stage_coeff < -0.99f) stage_coeff = -0.99f;
+    // Normal path: single chain L + quadrature chain R for sub-modes with ≤ 8 stages.
+    // For 12/16 stage sub-modes (indices 4, 5), run one chain and output mono.
+    const bool do_stereo = (num_stages_ <= 8);
 
-        stages_[i].SetCoeff(stage_coeff);
-        x = stages_[i].Process(x);
+    const float lfo_val  = lfo_.Process();
+    float coeff_l = center_ + depth_mod_ * lfo_val;
+    if (coeff_l > -0.01f) coeff_l = -0.01f;
+    if (coeff_l < -0.99f) coeff_l = -0.99f;
+
+    float xl = input.mono() + feedback_ * regen;
+    for (int i = 0; i < num_stages_; ++i) {
+        float sc = coeff_l;
+        if (i & 1) sc += 0.04f * depth_mod_;
+        else        sc -= 0.04f * depth_mod_;
+        if (sc > -0.01f) sc = -0.01f;
+        if (sc < -0.99f) sc = -0.99f;
+        stages_[i].SetCoeff(sc);
+        xl = stages_[i].Process(xl);
     }
-    x = dc_.Process(x);
-    feedback_ = x;
-    return {x, x};
+    xl = dc_.Process(xl);
+    feedback_ = xl;
+
+    if (!do_stereo) {
+        return {xl, xl};
+    }
+
+    // Stereo R chain: stages[8..8+num_stages_-1], driven by lfo2_ (90° ahead of lfo_).
+    const float lfo_val2 = lfo2_.Process();
+    float coeff_r = center_ + depth_mod_ * lfo_val2;
+    if (coeff_r > -0.01f) coeff_r = -0.01f;
+    if (coeff_r < -0.99f) coeff_r = -0.99f;
+
+    float xr = input.mono() + feedback2_ * regen;
+    for (int i = 0; i < num_stages_; ++i) {
+        const int si = 8 + i;
+        float sc = coeff_r;
+        if (i & 1) sc += 0.04f * depth_mod_;
+        else        sc -= 0.04f * depth_mod_;
+        if (sc > -0.01f) sc = -0.01f;
+        if (sc < -0.99f) sc = -0.99f;
+        stages_[si].SetCoeff(sc);
+        xr = stages_[si].Process(xr);
+    }
+    xr = dc2_.Process(xr);
+    feedback2_ = xr;
+
+    return {xl, xr};
 }
 
 } // namespace pedal
