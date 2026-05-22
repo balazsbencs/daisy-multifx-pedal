@@ -146,9 +146,15 @@ void PlateReverb::Prepare(const ParamSet& params) {
     lp_coef_ = 0.90f - params.tone * 0.85f;
 
     // LFO rate from mod param: 0.3..2.0 Hz
-    const float rate = 0.3f + params.mod * 1.7f;
-    lfo_a_.SetRate(rate);
-    lfo_b_.SetRate(rate);
+    const float mod_rate = 0.3f + params.mod * 1.7f;
+    // Param1: 0 = same rate (coherent modulation), 1 = ±12% rate spread (richer)
+    const float spread = params.param1 * 0.12f;
+    lfo_a_.SetRate(mod_rate * (1.0f - spread));
+    lfo_b_.SetRate(mod_rate * (1.0f + spread));
+
+    // Param2: 0 = smooth (lower g, more transparent), 1 = raw (higher g, more direct)
+    in_g_hi_ = 0.65f + params.param2 * 0.15f;  // 0.65 – 0.80
+    in_g_lo_ = 0.50f + params.param2 * 0.15f;  // 0.50 – 0.65
 }
 
 StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
@@ -158,10 +164,10 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
 
     // --- Input diffusion (4 series Schroeder allpasses) ---
     float s = predelayed;
-    s = idif_[0].Process(s, 0.75f);
-    s = idif_[1].Process(s, 0.75f);
-    s = idif_[2].Process(s, 0.625f);
-    s = idif_[3].Process(s, 0.625f);
+    s = idif_[0].Process(s, in_g_hi_);
+    s = idif_[1].Process(s, in_g_hi_);
+    s = idif_[2].Process(s, in_g_lo_);
+    s = idif_[3].Process(s, in_g_lo_);
 
     // --- Read all output & feedback taps BEFORE any tank writes this sample ---
     // Feedback cross-coupling
