@@ -32,14 +32,20 @@ void PatternDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame PatternDelay::Process(float input, const ParamSet& params) {
-    const float lfo_val    = lfo_out_;
-    const float base_samps = params.time * SAMPLE_RATE
-                           + lfo_val * (params.mod_dep * 25.0f);
+    const float lfo_val = lfo_out_;
+    float base_samps    = params.time * SAMPLE_RATE
+                        + lfo_val * (params.mod_dep * 25.0f);
+    if (base_samps < 1.0f) base_samps = 1.0f;
 
     // Select pattern: grit 0..0.333 -> 0, 0.333..0.667 -> 1, 0.667..1 -> 2
     int pat_idx = static_cast<int>(params.grit * 3.0f);
     if (pat_idx < 0) pat_idx = 0;
     if (pat_idx > 2) pat_idx = 2;
+
+    // Cap base_samps so the largest tap stays within the delay buffer
+    const float max_mult = PATTERNS[pat_idx][2];
+    const float max_base = static_cast<float>(MAX_DELAY_SAMPLES - 3) / max_mult;
+    if (base_samps > max_base) base_samps = max_base;
 
     // Sum three rhythmic taps; cache first tap for feedback
     float wet = 0.0f;
