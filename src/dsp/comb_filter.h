@@ -14,7 +14,10 @@ public:
 
     void SetDelay(size_t samples)  { line_.SetDelay(static_cast<float>(samples)); }
     void SetFeedback(float fb)     { feedback_ = fb; }
-    // damp: one-pole LP coefficient; 0 = no filtering, 1 = frozen
+    // damp: one-pole LP coefficient applied in the feedback path.
+    // 0 = frozen (state never updates, all HF suppressed).
+    // 1 = full bypass (no LP filtering, maximum brightness).
+    // Typical musical range: 0.1 (very dark) to 0.7 (bright).
     void SetDamping(float damp)    { damp_ = damp; }
 
     // Returns the un-damped tap (use for output mixing).
