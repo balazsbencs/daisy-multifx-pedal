@@ -11,7 +11,6 @@ const ParamRange& get_param_range(DelayModeId mode, ParamId param) {
         }
     }
     switch (param) {
-        case ParamId::Time:    return default_ranges::TIME;
         case ParamId::Repeats: return default_ranges::REPEATS;
         case ParamId::Mix:     return default_ranges::MIX;
         case ParamId::Filter:  return default_ranges::FILTER;
