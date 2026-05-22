@@ -12,7 +12,7 @@ public:
     void Reset(DelayModeId id);
 
 private:
-    DelayMode* modes_[NUM_DELAY_MODES]{};
+    DelayMode* modes_[static_cast<size_t>(DelayModeId::COUNT)]{};
 };
 
 } // namespace pedal

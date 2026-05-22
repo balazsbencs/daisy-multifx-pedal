@@ -12,7 +12,7 @@ public:
     void Reset(ModModeId id);
 
 private:
-    ModMode* modes_[NUM_MOD_MODES]{};
+    ModMode* modes_[static_cast<size_t>(ModModeId::COUNT)]{};
 };
 
 } // namespace pedal

@@ -12,7 +12,7 @@ public:
     void Reset(ReverbModeId id);
 
 private:
-    ReverbMode* modes_[NUM_REVERB_MODES]{};
+    ReverbMode* modes_[static_cast<size_t>(ReverbModeId::COUNT)]{};
 };
 
 } // namespace pedal
