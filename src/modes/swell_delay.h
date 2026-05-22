@@ -20,9 +20,10 @@ private:
     DcBlocker        dc_;
 
     SwellState state_    = SwellState::Idle;
-    float      env_gain_ = 0.0f;   // current envelope amplitude 0..1
+    float      env_gain_ = 0.0f;
     float      attack_rate_ = 0.0f;
     float      decay_rate_  = 0.0f;
+    float      delay_smooth_ = 0.0f;
     bool       prev_above_threshold_ = false;
 
     static constexpr float TRIGGER_THRESHOLD = 0.05f;
