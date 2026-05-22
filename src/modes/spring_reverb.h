@@ -2,6 +2,7 @@
 #include "reverb_mode.h"
 #include "../dsp/allpass.h"
 #include "../dsp/comb_filter.h"
+#include "../dsp/lfo.h"
 #include "../dsp/saturation.h"
 #include "../dsp/tone_filter.h"
 
@@ -23,6 +24,8 @@ private:
     CombFilter         comb_[3];
     Saturation         sat_;
     ToneFilter         tone_;
+    Lfo                spring_lfo_[3];
+    float              mod_depth_ = 0.0f;
     bool               hold_ = false;
     float              comb_fb_[3]{};
 };

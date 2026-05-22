@@ -84,6 +84,13 @@ void SpringReverb::Init() {
     tone_.Init();
     hold_ = false;
     for (auto& fb : comb_fb_) fb = 0.8f;
+
+    spring_lfo_[0].Init(0.30f, LfoWave::SmoothRandom);
+    spring_lfo_[1].Init(0.37f, LfoWave::SmoothRandom);
+    spring_lfo_[2].Init(0.44f, LfoWave::SmoothRandom);
+    spring_lfo_[0].SetJitter(0.3f);
+    spring_lfo_[1].SetJitter(0.3f);
+    spring_lfo_[2].SetJitter(0.3f);
 }
 
 void SpringReverb::Reset() {
@@ -102,6 +109,9 @@ void SpringReverb::Reset() {
     comb_[2].SetDelay(4520);
     tone_.Init();
     hold_ = false;
+    spring_lfo_[0].Reset();
+    spring_lfo_[1].Reset();
+    spring_lfo_[2].Reset();
 }
 
 void SpringReverb::Prepare(const ParamSet& params) {
@@ -130,6 +140,8 @@ void SpringReverb::Prepare(const ParamSet& params) {
     sat_.SetDrive(sqrtf((desired_drive - 1.0f) * (1.0f / 15.0f)));
 
     tone_.SetKnob(params.tone);
+
+    mod_depth_ = params.mod * 4.0f;  // 0 = no modulation, 1 = ±4 samples wobble
 }
 
 StereoFrame SpringReverb::Process(float input, const ParamSet& params) {
@@ -146,10 +158,17 @@ StereoFrame SpringReverb::Process(float input, const ParamSet& params) {
 
     for (int sp = 0; sp < n_springs; ++sp) {
         // Allpass dispersion chain
+        // Per-spring delay table pointer for modulated last stage
+        const size_t* ap_delays = (sp == 0) ? kApDelays0 : (sp == 1) ? kApDelays1 : kApDelays2;
+
         float s = saturated;
-        for (int st = 0; st < 6; ++st) {
+        for (int st = 0; st < 5; ++st) {
             s = ap_[sp][st].Process(s, kApG[st]);
         }
+        // Last stage is modulated for organic pitch wobble
+        const float lfo_val   = spring_lfo_[sp].Process();
+        const float mod_delay = static_cast<float>(ap_delays[5]) + lfo_val * mod_depth_;
+        s = ap_[sp][5].ProcessMod(s, kApG[5], mod_delay);
         // Feedback comb; (1-fb) normalization bounds resonant peak to unity
         const float c = comb_[sp].Process(s) * (1.0f - comb_fb_[sp]);
         // Alternate L/R per spring
