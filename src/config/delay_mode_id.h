@@ -8,7 +8,13 @@ enum class DelayModeId : uint8_t {
     Tape    = 1,
     Dual    = 2,
     Filter  = 3,
-    COUNT   = 4,
+    Lofi    = 4,
+    DBucket = 5,
+    Duck    = 6,
+    Pattern = 7,
+    Swell   = 8,
+    Trem    = 9,
+    COUNT   = 10,
 };
 
 } // namespace pedal
