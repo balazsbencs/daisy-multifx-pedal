@@ -30,35 +30,35 @@ void DigitalDelay::Reset() {
     digital_line_r.Reset();
     dc_l_.Init();
     dc_r_.Init();
+    delay_smooth_l_ = 0.0f;
+    delay_smooth_r_ = 0.0f;
 }
 
 void DigitalDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
     filter_l_.SetKnob(params.filter);
     filter_r_.SetKnob(params.filter);
 }
 
 StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
+    static constexpr float kDelaySlew = 0.001f;
+
     const float base_samps = params.time * SAMPLE_RATE;
-    // Add gentle delay-time modulation so Mod Speed/Depth are audible in Digital.
-    const float lfo_val    = lfo_out_;
-    const float mod_samps  = params.mod_dep * 30.0f;
-    
-    // Out-of-phase LFO modulation and a 150-sample (~3.1ms) delay offset on the Right
-    // channel to create a wide stereo field.
-    float delay_l = base_samps + lfo_val * mod_samps;
-    float delay_r = base_samps + kStereoOffsetSamples - lfo_val * mod_samps;
+    delay_smooth_l_ += kDelaySlew * (base_samps - delay_smooth_l_);
+    delay_smooth_r_ += kDelaySlew * (base_samps - delay_smooth_r_);
+
+    const float lfo_val   = lfo_.Process();
+    const float mod_samps = params.mod_dep * 30.0f;
+
+    float delay_l = delay_smooth_l_ + lfo_val * mod_samps;
+    float delay_r = delay_smooth_r_ + kStereoOffsetSamples - lfo_val * mod_samps;
 
     if (delay_l < 1.0f) delay_l = 1.0f;
-    if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_l = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
-
     if (delay_r < 1.0f) delay_r = 1.0f;
-    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
 
     digital_line_l.SetDelay(delay_l);
     digital_line_r.SetDelay(delay_r);

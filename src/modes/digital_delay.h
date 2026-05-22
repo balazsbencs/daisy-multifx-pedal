@@ -20,7 +20,8 @@ private:
     ToneFilter filter_r_;
     DcBlocker  dc_l_;
     DcBlocker  dc_r_;
-    float      lfo_out_ = 0.0f;
+    float      delay_smooth_l_ = 0.0f;
+    float      delay_smooth_r_ = 0.0f;
 };
 
 } // namespace pedal
