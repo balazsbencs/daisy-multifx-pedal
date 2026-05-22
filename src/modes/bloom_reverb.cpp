@@ -11,8 +11,8 @@ namespace {
 static float DSY_SDRAM_BSS buf_pre_delay[24000];
 static float DSY_SDRAM_BSS buf_diff0[143];
 static float DSY_SDRAM_BSS buf_diff1[108];
-static float DSY_SDRAM_BSS buf_diff2[673];
-static float DSY_SDRAM_BSS buf_diff3[414];
+static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
+static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[2904];
 static float DSY_SDRAM_BSS buf_fdn1[3492];
 static float DSY_SDRAM_BSS buf_fdn2[4160];
@@ -27,7 +27,7 @@ void BloomReverb::Init() {
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
     };
-    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, 673, 414 };
+    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser_.Init(diff_bufs, diff_sizes);
     diffuser_.SetDiffusion(0.65f);
 
