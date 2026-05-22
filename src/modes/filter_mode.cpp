@@ -71,14 +71,12 @@ StereoFrame FilterMode::Process(StereoFrame input, const ParamSet& params) {
         envelope_cutoff_hz_ = cutoff > 8000.0f ? 8000.0f : cutoff;
     } else {
         // LFO mode: compute cutoff per-sample for smooth filter sweep.
-        // Sweep is proportional to base_hz_, so at low tone settings the
-        // absolute range is narrow (~80 Hz at tone=0). This is intentional:
-        // the LFO acts as a percentage modulator, consistent across the full range.
         const float lfo_val = lfo_.Process(); // -1..+1
         const float mod_val = 0.5f + 0.5f * lfo_val;  // 0..1
-        const float sweep   = base_hz_ * depth_ * mod_val;
-        float cutoff = 80.0f + sweep;
-        if (cutoff > 12000.0f) cutoff = 12000.0f;
+        const float sweep   = depth_ * 4000.0f * mod_val;  // absolute ±4000 Hz at full depth
+        float cutoff = base_hz_ + sweep;
+        if (cutoff < 80.0f)     cutoff = 80.0f;
+        if (cutoff > 12000.0f)  cutoff = 12000.0f;
         svf_.SetFreq(cutoff);
     }
 
