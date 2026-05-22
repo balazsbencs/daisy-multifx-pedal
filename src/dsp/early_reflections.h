@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "delay_line_sdram.h"
+#include "fast_math.h"
 #include "../audio/stereo_frame.h"
 
 namespace pedal {
@@ -30,8 +31,11 @@ public:
             const float s     = line_.ReadAt(static_cast<float>(taps_[i].delay_samples));
             const float g     = taps_[i].gain;
             const float p     = taps_[i].pan;
-            out.left  += s * g * 0.5f * (1.0f - p);
-            out.right += s * g * 0.5f * (1.0f + p);
+            // Equal-power pan: angle sweeps [0, π/2] as p goes from -1 to +1.
+            // cos(π/4) = sin(π/4) = √2/2 ≈ 0.707 at center — +3 dB vs linear center.
+            const float angle = (p + 1.0f) * 0.7853982f;  // (p+1) * π/4
+            out.left  += s * g * fast_cos(angle);
+            out.right += s * g * fast_sin(angle);
         }
         line_.Write(input);
         return out;
