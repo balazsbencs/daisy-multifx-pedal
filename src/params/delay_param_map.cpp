@@ -5,7 +5,10 @@ namespace delay_fx {
 
 const ParamRange& get_param_range(DelayModeId mode, ParamId param) {
     if (param == ParamId::Time) {
-        return default_ranges::TIME;
+        switch (mode) {
+            case DelayModeId::Lofi: return default_ranges::TIME_LOFI;
+            default:                return default_ranges::TIME;
+        }
     }
     switch (param) {
         case ParamId::Time:    return default_ranges::TIME;
