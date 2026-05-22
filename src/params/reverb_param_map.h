@@ -33,6 +33,18 @@ namespace default_ranges {
     constexpr ParamRange PARAM1_SWELL   = {0.08f,  4.0f,  1.0f};
     constexpr ParamRange PARAM1_SHIMMER = {-12.0f, 24.0f, 0.0f};
     constexpr ParamRange PARAM2_SHIMMER = {-12.0f, 24.0f, 0.0f};
+    constexpr ParamRange PARAM1_CHORALE  = {0.0f,  6.0f,  0.0f};
+    constexpr ParamRange PARAM2_CHORALE  = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM1_NONLIN   = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM2_NONLIN   = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM1_MAGNETO  = {1.0f,  6.0f,  0.0f};
+    constexpr ParamRange PARAM2_MAGNETO  = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM1_REFL     = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM2_REFL     = {0.0f,  1.0f,  0.0f};
+    constexpr ParamRange PARAM1_BLOOM    = {0.5f,  5.0f,  1.0f};
+    constexpr ParamRange PARAM2_BLOOM    = {0.0f,  0.7f,  0.0f};
+    constexpr ParamRange DECAY_BLOOM     = {1.0f, 30.0f,  2.0f};
+    constexpr ParamRange DECAY_SWELL_R   = {0.5f, 20.0f,  2.0f};
 }
 
 } // namespace reverb_fx
