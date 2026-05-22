@@ -25,6 +25,7 @@ void SwellDelay::Reset() {
     env_gain_             = 0.0f;
     attack_rate_          = 0.0f;
     decay_rate_           = 0.0f;
+    delay_smooth_         = 0.0f;
     prev_above_threshold_ = false;
 }
 
@@ -44,10 +45,10 @@ void SwellDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame SwellDelay::Process(float input, const ParamSet& params) {
-    float delay_samps = params.time * SAMPLE_RATE;
-    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1))
-        delay_samps = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    swell_line.SetDelay(delay_samps);
+    static constexpr float kDelaySlew = 0.001f;
+
+    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    swell_line.SetDelay(delay_smooth_);
 
     // Detect rising edge: envelope crosses threshold upward
     const float level       = follower_.Process(input);

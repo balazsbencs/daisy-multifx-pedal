@@ -31,28 +31,28 @@ void FilterDelay::Reset() {
     dc_r_.Init();
     svf_l_.Reset();
     svf_r_.Reset();
+    delay_smooth_l_ = 0.0f;
+    delay_smooth_r_ = 0.0f;
 }
 
 void FilterDelay::Prepare(const ParamSet& params) {
+    static constexpr float kDelaySlew = 0.05f;  // block-rate: τ ≈ 20 blocks = 960 samples
+
     lfo_.SetRate(params.mod_spd);
 
-    float delay_samps = params.time * SAMPLE_RATE;
-    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
-        delay_samps = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
-    
-    // Left delay
-    filter_line_l.SetDelay(delay_samps);
+    float target = params.time * SAMPLE_RATE;
+    if (target > static_cast<float>(MAX_DELAY_SAMPLES - 1))
+        target = static_cast<float>(MAX_DELAY_SAMPLES - 1);
 
-    // Right delay offset by 150 samples (~3.1ms)
-    float delay_r = delay_samps + kStereoOffsetSamples;
-    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    delay_smooth_l_ += kDelaySlew * (target - delay_smooth_l_);
+    float delay_r = delay_smooth_l_ + kStereoOffsetSamples;
+    if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
-    filter_line_r.SetDelay(delay_r);
+    delay_smooth_r_ = delay_r;
 
-    // Q: from 0.5 (critically damped) to 15.0 (highly resonant, near self-oscillation)
-    // Decoupled from mod_dep and driven by the filter parameter (Bug 15)
+    filter_line_l.SetDelay(delay_smooth_l_);
+    filter_line_r.SetDelay(delay_smooth_r_);
+
     float q = 0.5f + params.filter * 14.5f;
     svf_l_.SetQ(q);
     svf_r_.SetQ(q);
