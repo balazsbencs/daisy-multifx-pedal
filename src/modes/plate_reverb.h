@@ -51,6 +51,10 @@ private:
     Lfo lfo_a_;
     Lfo lfo_b_;
 
+    // Input diffuser gains (Param2-controlled)
+    float in_g_hi_ = 0.75f;   // 0.65 – 0.80 (higher gain)
+    float in_g_lo_ = 0.625f;  // 0.50 – 0.65 (lower gain)
+
     float decay_ = 0.5f;
     bool  hold_  = false;
 };
