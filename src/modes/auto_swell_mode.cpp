@@ -26,6 +26,7 @@ void AutoSwellMode::Reset() {
     dc_.Init();
     dc_r_.Init();
     swell_gain_  = 0.0f;
+    thresh_env_ = 0.05f;
 }
 
 void AutoSwellMode::Prepare(const ParamSet& params) {
@@ -42,9 +43,10 @@ StereoFrame AutoSwellMode::Process(StereoFrame input, const ParamSet& params) {
     const float mono_in = input.mono();
     const float env_val = env_.Process(mono_in);  // 0..1 signal level
 
-    // When signal is present, release gain (let it drop to near-zero)
-    // When signal decays, ramp gain back up (the swell)
-    const float threshold = 0.05f;
+    // Adaptive threshold: τ ≈ 400 ms slow tracker
+    static constexpr float kThreshSlew = 1.0f / 19200.0f;
+    thresh_env_ += kThreshSlew * (env_val - thresh_env_);
+    const float threshold = thresh_env_ * 1.5f > 0.05f ? thresh_env_ * 1.5f : 0.05f;
     if (env_val > threshold) {
         // Input is loud: kill gain quickly (duck)
         swell_gain_ += duck_coef_ * (0.0f - swell_gain_);
