@@ -12,13 +12,13 @@ static float DSY_SDRAM_BSS buf_pre_delay[24000];
 // Diffuser 0 buffers
 static float DSY_SDRAM_BSS buf_d0_0[143];
 static float DSY_SDRAM_BSS buf_d0_1[108];
-static float DSY_SDRAM_BSS buf_d0_2[380];
-static float DSY_SDRAM_BSS buf_d0_3[278];
+static float DSY_SDRAM_BSS buf_d0_2[Diffuser::kDelays[2] + 1];
+static float DSY_SDRAM_BSS buf_d0_3[Diffuser::kDelays[3] + 1];
 // Diffuser 1 buffers (scaled up)
 static float DSY_SDRAM_BSS buf_d1_0[211];
 static float DSY_SDRAM_BSS buf_d1_1[157];
-static float DSY_SDRAM_BSS buf_d1_2[541];
-static float DSY_SDRAM_BSS buf_d1_3[389];
+static float DSY_SDRAM_BSS buf_d1_2[Diffuser::kDelays[2] + 1];
+static float DSY_SDRAM_BSS buf_d1_3[Diffuser::kDelays[3] + 1];
 // FDN 8-line buffers
 static float DSY_SDRAM_BSS buf_fdn0[4802];
 static float DSY_SDRAM_BSS buf_fdn1[5504];
@@ -38,14 +38,14 @@ void CloudReverb::Init() {
     float* d0_bufs[Diffuser::STAGES] = {
         buf_d0_0, buf_d0_1, buf_d0_2, buf_d0_3
     };
-    const size_t d0_sizes[Diffuser::STAGES] = { 143, 108, 380, 278 };
+    const size_t d0_sizes[Diffuser::STAGES] = { 143, 108, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser0_.Init(d0_bufs, d0_sizes);
     diffuser0_.SetDiffusion(0.7f);
 
     float* d1_bufs[Diffuser::STAGES] = {
         buf_d1_0, buf_d1_1, buf_d1_2, buf_d1_3
     };
-    const size_t d1_sizes[Diffuser::STAGES] = { 211, 157, 541, 389 };
+    const size_t d1_sizes[Diffuser::STAGES] = { 211, 157, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser1_.Init(d1_bufs, d1_sizes);
     diffuser1_.SetDiffusion(0.7f);
 

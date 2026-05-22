@@ -16,6 +16,7 @@ CPP_SOURCES = \
     src/params/reverb_param_map.cpp \
     \
     src/dsp/delay_line_sdram.cpp \
+    src/dsp/diffuser.cpp \
     src/dsp/envelope_follower.cpp \
     src/dsp/lfo.cpp \
     src/dsp/tone_filter.cpp \

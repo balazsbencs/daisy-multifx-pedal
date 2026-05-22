@@ -12,8 +12,8 @@ namespace {
 static float DSY_SDRAM_BSS buf_pre_delay[24000];
 static float DSY_SDRAM_BSS buf_diff0[143];
 static float DSY_SDRAM_BSS buf_diff1[108];
-static float DSY_SDRAM_BSS buf_diff2[380];
-static float DSY_SDRAM_BSS buf_diff3[278];
+static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
+static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[1452];
 static float DSY_SDRAM_BSS buf_fdn1[1748];
 static float DSY_SDRAM_BSS buf_fdn2[2084];
@@ -53,7 +53,7 @@ void NonlinearReverb::Init() {
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
     };
-    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, 380, 278 };
+    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser_.Init(diff_bufs, diff_sizes);
     diffuser_.SetDiffusion(0.6f);
 
