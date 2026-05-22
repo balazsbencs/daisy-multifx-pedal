@@ -14,21 +14,25 @@ void LofiDelay::Init() {
     lofi_line.Init(lofi_buf, MAX_DELAY_SAMPLES);
     lfo_.Init(1.0f, LfoWave::Triangle);
     dc_.Init();
-    held_sample_ = 0.0f;
-    sr_counter_  = 0.0f;
-    bits_        = 16;
-    bit_scale_   = 65536.0f;
-    decimate_    = 1.0f;
+    held_sample_  = 0.0f;
+    sr_counter_   = 0.0f;
+    bits_         = 16;
+    bit_scale_    = 65536.0f;
+    decimate_     = 1.0f;
+    aa_lp_        = 0.0f;
+    delay_smooth_ = 0.0f;
 }
 
 void LofiDelay::Reset() {
     lofi_line.Reset();
     dc_.Init();
-    held_sample_ = 0.0f;
-    sr_counter_  = 0.0f;
-    bits_        = 16;
-    bit_scale_   = 65536.0f;
-    decimate_    = 1.0f;
+    held_sample_  = 0.0f;
+    sr_counter_   = 0.0f;
+    bits_         = 16;
+    bit_scale_    = 65536.0f;
+    decimate_     = 1.0f;
+    aa_lp_        = 0.0f;
+    delay_smooth_ = 0.0f;
 }
 
 void LofiDelay::Prepare(const ParamSet& params) {
@@ -45,26 +49,31 @@ void LofiDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame LofiDelay::Process(float input, const ParamSet& params) {
+    static constexpr float kDelaySlew = 0.001f;
+
+    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
     const float lfo_val    = lfo_out_;
-    const float base_samps = params.time * SAMPLE_RATE;
-    float delay_samps      = base_samps + lfo_val * (params.mod_dep * 20.0f);
-    if (delay_samps < 1.0f) {
+    float delay_samps      = delay_smooth_ + lfo_val * (params.mod_dep * 20.0f);
+    if (delay_samps < 1.0f)
         delay_samps = 1.0f;
-    }
-    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
+    if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1))
         delay_samps = static_cast<float>(MAX_DELAY_SAMPLES - 1);
-    }
     lofi_line.SetDelay(delay_samps);
 
     float wet = lofi_line.Read();
 
-    // --- Bit crush ---
+    // Anti-alias LP: cut above Nyquist of the decimated sample rate
+    float aa_k = 3.14159f / decimate_;
+    if (aa_k > 0.5f) aa_k = 0.5f;
+    aa_lp_ += aa_k * (wet - aa_lp_);
+    wet = aa_lp_;
+
+    // Bit crush
     if (bits_ < 16) {
         wet = roundf(wet * bit_scale_) / bit_scale_;
     }
 
-    // --- Sample-rate reduction (decimation) ---
-    // sr_counter_ accumulates; when >= factor, update held sample
+    // Sample-rate reduction
     sr_counter_ += 1.0f;
     if (sr_counter_ >= decimate_) {
         sr_counter_ -= decimate_;
@@ -76,7 +85,6 @@ StereoFrame LofiDelay::Process(float input, const ParamSet& params) {
     lofi_line.Write(input + feedback);
 
     wet = dc_.Process(wet);
-
     return StereoFrame{wet, wet};
 }
 
