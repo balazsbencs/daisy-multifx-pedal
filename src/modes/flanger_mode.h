@@ -24,7 +24,7 @@ struct SimpleLpf {
 
 // A small, highly efficient integer delay line for the pure dry path in TZF.
 struct DryDelay {
-    float  buf[16];
+    float  buf[256];
     size_t write;
 
     void Init() {
@@ -34,11 +34,11 @@ struct DryDelay {
 
     void Write(float sample) {
         buf[write] = sample;
-        write = (write + 1) & 15;
+        write = (write + 1) & 255;
     }
 
     float Read(size_t delay_samples) const {
-        size_t read_ptr = (write + 15 - delay_samples) & 15;
+        size_t read_ptr = (write + 255 - delay_samples) & 255;
         return buf[read_ptr];
     }
 };

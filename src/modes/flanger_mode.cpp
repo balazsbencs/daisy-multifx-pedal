@@ -172,7 +172,7 @@ StereoFrame FlangerMode::Process(StereoFrame input, const ParamSet& params) {
 
     // 8. If Through-Zero Flanger, compensate for external engine dry mix
     if (sub >= 4) {
-        static constexpr float kDryDelay = 12.0f;
+        static constexpr float kDryDelay = 230.0f;
         float dry_delayed_l = dry_delay_l_.Read(static_cast<size_t>(kDryDelay));
         float dry_delayed_r = dry_delay_r_.Read(static_cast<size_t>(kDryDelay));
 
