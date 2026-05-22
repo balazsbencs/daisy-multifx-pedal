@@ -48,7 +48,9 @@ void Fdn::SetDamping(float damp) {
 }
 
 void Fdn::SetModulation(float depth_samples) {
-    mod_depth_ = depth_samples < 0.0f ? 0.0f : depth_samples;
+    // Cap depth to 8 samples (~5 cents at 2.52 Hz) to stay below audible flutter threshold.
+    const float clamped = depth_samples < 0.0f ? 0.0f : depth_samples;
+    mod_depth_ = clamped > 8.0f ? 8.0f : clamped;
 }
 
 void Fdn::SetHold(bool hold) {
