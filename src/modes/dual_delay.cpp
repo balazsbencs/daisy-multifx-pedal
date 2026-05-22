@@ -30,24 +30,28 @@ void DualDelay::Reset() {
     dual_line_r.Reset();
     dc_l_.Init();
     dc_r_.Init();
+    delay_smooth_l_ = 0.0f;
+    delay_smooth_r_ = 0.0f;
 }
 
 void DualDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
     filter_l_.SetKnob(params.filter);
     filter_r_.SetKnob(params.filter);
 }
 
 StereoFrame DualDelay::Process(float input, const ParamSet& params) {
-    const float lfo_val = lfo_out_;
-    const float base_samps = params.time * SAMPLE_RATE;
+    static constexpr float kDelaySlew = 0.001f;
 
-    // Out-of-phase modulation with a tight, musical detuning depth (+/-0.5% max)
-    // and a 150-sample (~3.1ms) offset on the right channel.
-    const float mod_samps = base_samps * params.mod_dep * 0.005f;
-    float delay_l = base_samps + lfo_val * mod_samps;
-    float delay_r = base_samps + kStereoOffsetSamples - lfo_val * mod_samps;
+    const float base_samps = params.time * SAMPLE_RATE;
+    delay_smooth_l_ += kDelaySlew * (base_samps - delay_smooth_l_);
+    delay_smooth_r_ += kDelaySlew * (base_samps - delay_smooth_r_);
+
+    const float lfo_val   = lfo_.Process();
+    const float mod_samps = delay_smooth_l_ * params.mod_dep * 0.005f;
+
+    float delay_l = delay_smooth_l_ + lfo_val * mod_samps;
+    float delay_r = delay_smooth_r_ + kStereoOffsetSamples - lfo_val * mod_samps;
 
     if (delay_l < 1.0f) delay_l = 1.0f;
     if (delay_l > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
