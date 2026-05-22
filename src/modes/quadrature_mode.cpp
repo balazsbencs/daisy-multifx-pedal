@@ -26,6 +26,8 @@ static float fcos(float x) noexcept {
 void QuadratureMode::Init() {
     hilbert_.Init();
     lfo_.Init(1.0f, LfoWave::Sine);
+    dc_.Init();
+    dc_r_.Init();
     carrier_phase_ = 0.0f;
     phase_inc_     = 0.0f;
     sub_mode_      = 0;
@@ -35,6 +37,7 @@ void QuadratureMode::Reset() {
     hilbert_.Reset();
     lfo_.Init(1.0f, LfoWave::Sine);
     dc_.Init();
+    dc_r_.Init();
     carrier_phase_ = 0.0f;
     phase_inc_     = 0.0f;
     sub_mode_      = 0;
@@ -89,7 +92,7 @@ StereoFrame QuadratureMode::Process(StereoFrame input, const ParamSet& params) {
             const float ring = mono * cos_c;
             const float p1   = params.p1;
             const float left  = dc_.Process(ring);
-            const float right = dc_.Process(ring * (1.0f - p1) + (mono * (-sin_c)) * p1);
+            const float right = dc_r_.Process(ring * (1.0f - p1) + (mono * (-sin_c)) * p1);
             return {left, right};
         }
 
