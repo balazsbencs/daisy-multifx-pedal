@@ -139,8 +139,9 @@ StereoFrame FlangerMode::Process(StereoFrame input, const ParamSet& params) {
     const float drift_amt = (sub >= 4) ? 1.5f : 0.8f; // slightly more drift in TZF modes
 
     // 3. Calculate delays and clamp to buffer bounds
-    float delay_l = (0.5f + 0.5f * lfo_l) * depth_ * max_depth_ + 1.0f + drift_l_ * drift_amt;
-    float delay_r = (0.5f + 0.5f * lfo_r) * depth_ * max_depth_ + 1.0f + drift_r_ * drift_amt;
+    const float center = max_depth_ * 0.5f;
+    float delay_l = center + lfo_l * depth_ * center + 1.0f + drift_l_ * drift_amt;
+    float delay_r = center + lfo_r * depth_ * center + 1.0f + drift_r_ * drift_amt;
     if (delay_l < 1.0f) delay_l = 1.0f;
     if (delay_r < 1.0f) delay_r = 1.0f;
     if (delay_l >= static_cast<float>(kFlangerBufSize - 1)) delay_l = static_cast<float>(kFlangerBufSize - 1);
