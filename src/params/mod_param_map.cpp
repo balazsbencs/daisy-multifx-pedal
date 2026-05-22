@@ -4,13 +4,17 @@ namespace pedal {
 namespace mod_fx {
 
 namespace mode_ranges {
-    constexpr ParamRange SPEED_VINTTREM = {1.0f, 15.0f, 1.0f};
+    constexpr ParamRange SPEED_VINTTREM  = {1.0f,  15.0f, 1.0f};
+    constexpr ParamRange SPEED_DESTROYER = {1.0f,  48.0f, 1.0f};
+    constexpr ParamRange SPEED_PATTREM   = {0.5f,   8.0f, 1.0f};
 }
 
 const ParamRange& get_param_range(ModModeId mode, ParamId param) {
     if (param == ParamId::Speed) {
         switch (mode) {
-            case ModModeId::VintTrem: return mode_ranges::SPEED_VINTTREM;
+            case ModModeId::VintTrem:    return mode_ranges::SPEED_VINTTREM;
+            case ModModeId::Destroyer:   return mode_ranges::SPEED_DESTROYER;
+            case ModModeId::PatternTrem: return mode_ranges::SPEED_PATTREM;
             default: break;
         }
     }
