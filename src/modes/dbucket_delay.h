@@ -3,6 +3,8 @@
 #include "../dsp/lfo.h"
 #include "../dsp/tone_filter.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/bbd_emulator.h"
+#include <cstdint>
 
 namespace pedal {
 
@@ -15,15 +17,12 @@ public:
     const char* Name() const override { return "Dbucket"; }
 
 private:
-    Lfo        lfo_;
-    ToneFilter filter_;
-    DcBlocker  dc_;
-
-    // Simple LCG for deterministic noise
-    uint32_t noise_seed_ = 12345u;
-    float    lfo_out_    = 0.0f;
-
-    float next_noise();
+    Lfo         lfo_;
+    ToneFilter  filter_;
+    DcBlocker   dc_;
+    BbdEmulator bbd_;
+    uint32_t    noise_seed_   = 12345u;
+    float       delay_smooth_ = 0.0f;
 };
 
 } // namespace pedal
