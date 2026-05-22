@@ -91,6 +91,15 @@ void SpringReverb::Reset() {
         for (int s = 0; s < 6; ++s) ap_[sp][s].Reset();
         comb_[sp].Reset();
     }
+    // DelayLineSdram::Reset() resets delay_ to 2; re-apply configured delays.
+    for (int s = 0; s < 6; ++s) {
+        ap_[0][s].SetDelay(kApDelays0[s]);
+        ap_[1][s].SetDelay(kApDelays1[s]);
+        ap_[2][s].SetDelay(kApDelays2[s]);
+    }
+    comb_[0].SetDelay(4000);
+    comb_[1].SetDelay(4280);
+    comb_[2].SetDelay(4520);
     tone_.Init();
     hold_ = false;
 }
@@ -116,9 +125,9 @@ void SpringReverb::Prepare(const ParamSet& params) {
 
     // Saturation drive from param1 (Dwell)
     // 0→1.0, 0.25→2.0, 0.5→4.0, 0.75→8.0 → desired_drive = 2^(3*param1)
-    // SetDrive(x) sets drive_ = 1 + x*15, so x = (desired_drive - 1) / 15
+    // SetDrive(x) sets drive_ = 1 + x*x*15 (quadratic), so x = sqrt((desired_drive - 1) / 15)
     const float desired_drive = std::exp(params.param1 * 3.0f * 0.693147f); // 2^(3*p1)
-    sat_.SetDrive((desired_drive - 1.0f) * (1.0f / 15.0f));
+    sat_.SetDrive(sqrtf((desired_drive - 1.0f) * (1.0f / 15.0f)));
 
     tone_.SetKnob(params.tone);
 }
