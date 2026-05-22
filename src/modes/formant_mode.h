@@ -1,14 +1,14 @@
 #pragma once
 #include "mod_mode.h"
 #include "../dsp/lfo.h"
-#include "../dsp/svf.h"
+#include "../dsp/formant_filter.h"
 #include "../dsp/dc_blocker.h"
 
 namespace pedal {
 
-/// Vowel formant filter — two SVF bandpass filters morphing between vowels.
-/// P2 selects target vowel (AA/EE/EYE/OH/OOH).
-/// LFO morphs toward that vowel; Speed controls morph rate.
+/// 5-band vowel formant filter using FormantFilter (7 vowels, 5 biquad bands).
+/// P2 selects the base vowel; LFO morphs toward the adjacent vowel at Speed rate.
+/// Depth controls morph depth; P1 controls resonance Q.
 class FormantMode : public ModMode {
 public:
     void Init() override;
@@ -18,16 +18,12 @@ public:
     const char* Name() const override { return "Formant"; }
 
 private:
-    Lfo      lfo_;
-    Svf      f1_, f2_;   // formant 1 and 2 bandpass filters
-    DcBlocker dc_;
-
-    float f1_hz_       = 500.0f;
-    float f2_hz_       = 1500.0f;
-    float target_f1_   = 500.0f;
-    float target_f2_   = 1500.0f;
-    float morph_depth_ = 0.5f;
-    int   update_count_ = 0;
+    Lfo           lfo_;
+    FormantFilter ff_a_;     // current vowel
+    FormantFilter ff_b_;     // adjacent vowel for morph
+    DcBlocker     dc_;
+    float         blend_a_ = 1.0f;
+    float         blend_b_ = 0.0f;
 };
 
 } // namespace pedal
