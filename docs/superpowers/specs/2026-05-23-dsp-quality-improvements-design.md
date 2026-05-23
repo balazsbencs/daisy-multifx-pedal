@@ -1,7 +1,7 @@
 # DSP Quality Improvements Design
 
 **Date**: 2026-05-23  
-**Branch**: `feature/dsp-quality-v2` (from `main`)  
+**Branch**: `feature/dsp-quality-fixes` (continuing existing DSP work, branched from `main`)  
 **Priority**: Sound quality above all else. Push CPU as needed; CPU meter provides visibility.  
 **Stage priority**: Modulation → Delay → Reverb
 
@@ -180,17 +180,18 @@ All four are prime, so GCD of any pair = 1. This is a constant-swap only — zer
 
 ## Implementation Order
 
-1. `feature/dsp-quality-v2` branch from `main`
-2. CPU meter (display + ISR measurement) — flash and verify readout first
-3. ToneFilter biquad upgrade — highest return, lowest risk, affects all modes
-4. Rotary AM depth + acceleration — modulation priority
-5. Phaser stereo + feedback soft-clip — modulation priority
-6. Delay anti-aliasing pre-filter
-7. Delay soft-knee feedback limiter (`FeedbackLimiter` primitive)
-8. Tape delay frequency-dependent saturation
-9. Hall/Room per-band RT60
-10. Diffuser Fibonacci primes (constant swap)
-11. Plate modulation depth parameter
+All items build on top of existing DSP fixes on `feature/dsp-quality-fixes` (AutoSwellMode, QuadratureMode, FormantMode, FilterMode, PhaserMode stereo).
+
+1. CPU meter (display + ISR measurement) — flash and verify readout first
+2. ToneFilter biquad upgrade — highest return, lowest risk, affects all modes
+3. Rotary AM depth + acceleration — modulation priority
+4. Phaser stereo + feedback soft-clip — modulation priority
+5. Delay anti-aliasing pre-filter
+6. Delay soft-knee feedback limiter (`FeedbackLimiter` primitive)
+7. Tape delay frequency-dependent saturation
+8. Hall/Room per-band RT60
+9. Diffuser Fibonacci primes (constant swap)
+10. Plate modulation depth parameter
 
 Each item is independently flashable and testable on hardware before the next begins.
 
