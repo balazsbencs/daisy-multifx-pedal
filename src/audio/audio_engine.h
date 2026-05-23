@@ -30,6 +30,7 @@ public:
     void SetReverbMode(ReverbMode* m);
     void SetParams(const MultiParamBuf& params);
     void SetHold(bool hold);
+    static float GetCpuUsage() { return cpu_usage_; }
 
     static void AudioCallback(daisy::AudioHandle::InputBuffer  in,
                               daisy::AudioHandle::OutputBuffer out,
@@ -53,6 +54,8 @@ private:
     volatile bool param_dirty_    = false;
     volatile bool hold_dirty_     = false;
     volatile bool new_hold_       = false;
+
+    static volatile float cpu_usage_;
 
     // Per-stage cached mix coefficients
     float last_mod_mix_   = -1.0f;
