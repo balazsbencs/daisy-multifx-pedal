@@ -7,6 +7,7 @@ using namespace daisy;
 namespace pedal {
 
 AudioEngine* AudioEngine::instance_ = nullptr;
+volatile float AudioEngine::cpu_usage_ = 0.0f;
 
 void AudioEngine::Init(DaisySeed* hw) {
     hw_              = hw;
@@ -23,6 +24,11 @@ void AudioEngine::Init(DaisySeed* hw) {
     param_buf_[0].hold_active = false;
     param_buf_[1] = param_buf_[0];
     instance_ = this;
+
+    // Enable DWT cycle counter for CPU load measurement
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CYCCNT = 0;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 }
 
 void AudioEngine::SetModMode(ModMode* m) {
@@ -77,6 +83,8 @@ void AudioEngine::UpdateMixCoeffs(const MultiParamBuf& p) {
 void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
                                AudioHandle::OutputBuffer out,
                                size_t                    size) {
+    const uint32_t t0 = DWT->CYCCNT;
+
     if (param_dirty_) { param_read_idx_ ^= 1; param_dirty_ = false; }
     if (hold_dirty_) {
         hold_dirty_ = false;
@@ -127,6 +135,13 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
         OUT_L[i] = s3.left;
         OUT_R[i] = s3.right;
     }
+
+    const uint32_t t1 = DWT->CYCCNT;
+    // 480 MHz * 48 samples / 48000 Hz = 480000 cycles per block
+    static constexpr uint32_t kCyclesPerBlock = 480000u;
+    const uint32_t elapsed = t1 - t0;
+    cpu_usage_ = static_cast<float>(elapsed) / static_cast<float>(kCyclesPerBlock);
+    if (cpu_usage_ > 1.0f) cpu_usage_ = 1.0f;
 }
 
 } // namespace pedal
