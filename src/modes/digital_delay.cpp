@@ -38,6 +38,12 @@ void DigitalDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
     filter_l_.SetKnob(params.filter);
     filter_r_.SetKnob(params.filter);
+    // Anti-alias LP: cutoff tracks mod depth × rate.
+    // At zero mod this is transparent (coef=1). At max mod it rolls off ~8 kHz.
+    const float mod_rate_hz = params.mod_spd * params.mod_dep * 30.0f;
+    const float norm = mod_rate_hz / (10.0f * 30.0f);  // max speed × max depth_samples
+    const float aa_fc = 20000.0f - norm * 12000.0f;     // 20kHz → 8kHz
+    aa_coef_ = 1.0f - expf(-2.0f * 3.14159265f * aa_fc * INV_SAMPLE_RATE);
 }
 
 StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
@@ -72,8 +78,11 @@ StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
     const float feedback_l = wet_l * params.repeats;
     const float feedback_r = wet_r * params.repeats;
 
-    digital_line_l.Write(input + feedback_l);
-    digital_line_r.Write(input + feedback_r);
+    // Anti-alias LP on write input
+    aa_state_l_ += aa_coef_ * ((input + feedback_l) - aa_state_l_);
+    aa_state_r_ += aa_coef_ * ((input + feedback_r) - aa_state_r_);
+    digital_line_l.Write(aa_state_l_);
+    digital_line_r.Write(aa_state_r_);
 
     wet_l = dc_l_.Process(wet_l);
     wet_r = dc_r_.Process(wet_r);

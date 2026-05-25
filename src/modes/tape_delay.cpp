@@ -40,6 +40,11 @@ void TapeDelay::Prepare(const ParamSet& params) {
     lfo_out_ = lfo_.PrepareBlock();
     filter_.SetKnob(params.filter);
     sat_.SetDrive(params.grit);
+    const float flutter = params.mod_dep * 50.0f;
+    const float mod_rate_hz = params.mod_spd * flutter;
+    const float norm = mod_rate_hz / (10.0f * 50.0f);
+    const float aa_fc = 20000.0f - norm * 12000.0f;
+    aa_coef_ = 1.0f - expf(-2.0f * 3.14159265f * aa_fc * INV_SAMPLE_RATE);
 }
 
 StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
@@ -92,7 +97,8 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     float write_val = input + feedback;
     if (write_val >  1.0f) write_val =  1.0f;
     if (write_val < -1.0f) write_val = -1.0f;
-    tape_line.Write(write_val);
+    aa_state_ += aa_coef_ * (write_val - aa_state_);
+    tape_line.Write(aa_state_);
 
     // Apply DC blockers independently per channel
     wet_l = dc_l_.Process(wet_l);
