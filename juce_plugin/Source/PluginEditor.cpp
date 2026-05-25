@@ -300,7 +300,7 @@ DaisyMultiFxAudioProcessorEditor::DaisyMultiFxAudioProcessorEditor (DaisyMultiFx
         {"delayFilter", "FILTER"}, {"delayGrit", "GRIT"}, {"delayModSpd", "MOD SPEED"}, {"delayModDep", "MOD DEPTH"}
     };
     setupSection(delaySection_, "DELAY", delayColor,
-                 juce::StringArray{"Digital", "Tape", "Dual", "Filter Dly"},
+                 juce::StringArray{"Digital", "Tape", "Dual", "Filter Dly", "Lofi", "BBD", "Duck", "Pattern", "Swell Dly", "Trem"},
                  "bypassDelay", "modeDelay", dlyParams, true, "delayTempoSync", "delayNoteDiv");
 
     // ── Build Reverb Section ─────────────────────────────────────────────────
@@ -309,7 +309,7 @@ DaisyMultiFxAudioProcessorEditor::DaisyMultiFxAudioProcessorEditor (DaisyMultiFx
         {"reverbTone", "TONE"}, {"reverbMod", "MODULATION"}, {"reverbParam1", "PARAM 1"}, {"reverbParam2", "PARAM 2"}
     };
     setupSection(reverbSection_, "REVERB", reverbColor,
-                 juce::StringArray{"Room", "Hall", "Plate", "Spring"},
+                 juce::StringArray{"Room", "Hall", "Plate", "Spring", "Bloom", "Cloud", "Shimmer", "Chorale", "NonLin", "Swell", "Magneto", "Reflect"},
                  "bypassReverb", "modeReverb", revParams, false, "", "");
 
     // Setup Reverb Hold (metallic switch)
@@ -578,14 +578,22 @@ bool DaisyMultiFxAudioProcessorEditor::updateDynamicUi() {
     if (curReverbMode != lastReverbMode_) {
         lastReverbMode_ = curReverbMode;
 
-        static const std::pair<juce::String, juce::String> kDescriptors[4] = {
-            {"SIZE", "DIFFUSION"}, // Room
-            {"SIZE", "MID EQ"},    // Hall
-            {"SIZE", "UNUSED"},    // Plate
-            {"DWELL", "SPRINGS"}   // Spring
+        static const std::pair<juce::String, juce::String> kDescriptors[12] = {
+            {"SIZE",       "DIFFUSION"},  // Room
+            {"SIZE",       "MID EQ"},     // Hall
+            {"SIZE",       "UNUSED"},     // Plate
+            {"DWELL",      "SPRINGS"},    // Spring
+            {"BLOOM TIME", "FEEDBACK"},   // Bloom
+            {"DIFFUSION",  "DARKNESS"},   // Cloud
+            {"PITCH 1",    "PITCH 2"},    // Shimmer
+            {"VOWEL",      "RESONANCE"},  // Chorale
+            {"SHAPE",      "DIFFUSION"},  // Nonlinear
+            {"RISE TIME",  "DIRECTION"},  // Swell
+            {"HEADS",      "SPACING"},    // Magneto
+            {"DEPTH",      "WIDTH"},      // Reflections
         };
 
-        if (curReverbMode >= 0 && curReverbMode < 4) {
+        if (curReverbMode >= 0 && curReverbMode < 12) {
             reverbSection_.params[5]->label.setText(kDescriptors[curReverbMode].first, juce::dontSendNotification);
             reverbSection_.params[6]->label.setText(kDescriptors[curReverbMode].second, juce::dontSendNotification);
             
