@@ -35,6 +35,8 @@ void DigitalDelay::Reset() {
     aa_state_l_ = 0.0f;
     aa_state_r_ = 0.0f;
     aa_coef_    = 1.0f;
+    fb_lim_l_.Reset();
+    fb_lim_r_.Reset();
 }
 
 void DigitalDelay::Prepare(const ParamSet& params) {
@@ -78,8 +80,8 @@ StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
     wet_l = filter_l_.Process(wet_l);
     wet_r = filter_r_.Process(wet_r);
 
-    const float feedback_l = wet_l * params.repeats;
-    const float feedback_r = wet_r * params.repeats;
+    const float feedback_l = fb_lim_l_.Process(wet_l * params.repeats);
+    const float feedback_r = fb_lim_r_.Process(wet_r * params.repeats);
 
     // Anti-alias LP on write input
     aa_state_l_ += aa_coef_ * ((input + feedback_l) - aa_state_l_);
