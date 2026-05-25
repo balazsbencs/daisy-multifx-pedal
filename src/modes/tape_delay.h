@@ -29,6 +29,10 @@ private:
     float aa_state_ = 0.0f;
     float aa_coef_  = 1.0f;
     FeedbackLimiter fb_lim_;
+    float pre_shelf_state_  = 0.0f;  // HF pre-emphasis state
+    float post_shelf_state_ = 0.0f;  // HF de-emphasis state
+    float shelf_coef_       = 0.0f;  // 1-pole HP coefficient (~3kHz)
+    float shelf_gain_       = 0.0f;  // 0 at grit=0, 1 at grit=1
 };
 
 } // namespace pedal
