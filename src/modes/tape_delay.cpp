@@ -98,6 +98,10 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
 
     const float feedback = fb_lim_.Process(fb_mono * params.repeats);
     float write_val = input + feedback;
+    // Hard stop: limiter guards feedback only; dry input can push write_val > 1.0.
+    // ±2.0 prevents delay buffer runaway while preserving musical headroom.
+    if (write_val >  2.0f) write_val =  2.0f;
+    if (write_val < -2.0f) write_val = -2.0f;
     aa_state_ += aa_coef_ * (write_val - aa_state_);
     tape_line.Write(aa_state_);
 
