@@ -16,7 +16,7 @@
 #include "midi/midi_handler.h"
 #include "display/display_manager.h"
 #include "tempo/tempo_sync.h"
-#include "presets/preset_manager.h"
+#include "presets/qspi_preset_store.h"
 
 using namespace daisy;
 using namespace pedal;
@@ -33,7 +33,7 @@ static ReverbModeRegistry reverb_registry;
 static MidiHandlerPedal  midi_handler;
 static DisplayManager    display;
 static TempoSync         tempo_sync;
-static MultiPresetManager preset_manager;
+static QspiPresetStore preset_store;
 
 // ── Main-loop state ───────────────────────────────────────────────────────────
 static int active_page = 0;  // 0 = mod, 1 = delay, 2 = reverb
@@ -47,6 +47,7 @@ static DelayModeId  cur_delay  = DelayModeId::Tape;
 static ReverbModeId cur_reverb = ReverbModeId::Hall;
 
 static bool hold_active   = false;
+static int  preset_bank   = 0;
 static int  preset_slot   = 0;
 static bool fx_enabled[3] = {true, false, false}; // 0=mod,1=delay,2=reverb — off by default
 
@@ -178,17 +179,17 @@ int main() {
     SwitchDelayMode(cur_delay);
     SwitchReverbMode(cur_reverb);
 
-    midi_handler.Init(hw);
+    midi_handler.Init(hw, preset_store);
     // libDaisy's default UART MIDI uses D13/D14, which this build also uses
     // for the ST7789 CS/DC pins. Init the display after MIDI so those pins
     // end up configured for the screen, matching the working delay project.
     display.Init();
-    preset_manager.Init(hw);
+    preset_store.Init(hw.qspi);
 
     // ── Restore live state on boot ─────────────────────────────────────────
     {
         MultiPresetSlot live;
-        if (preset_manager.LoadLiveState(live) &&
+        if (preset_store.LoadLiveState(live) &&
             live.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES) &&
             live.delay_mode  < static_cast<uint8_t>(NUM_DELAY_MODES) &&
             live.reverb_mode < static_cast<uint8_t>(NUM_REVERB_MODES)) {
@@ -332,6 +333,42 @@ int main() {
         if (midi.clock_tick) tempo_sync.OnMidiClock(now);
         if (midi.clock_stop) tempo_sync.OnMidiStop();
 
+        if (midi.preset_load) {
+            MultiPresetSlot loaded;
+            if (preset_store.LoadSlot(midi.sysex_bank, midi.sysex_slot, loaded) &&
+                loaded.valid &&
+                loaded.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES) &&
+                loaded.delay_mode  < static_cast<uint8_t>(NUM_DELAY_MODES) &&
+                loaded.reverb_mode < static_cast<uint8_t>(NUM_REVERB_MODES)) {
+                SwitchModMode(static_cast<ModModeId>(loaded.mod_mode));
+                SwitchDelayMode(static_cast<DelayModeId>(loaded.delay_mode));
+                SwitchReverbMode(static_cast<ReverbModeId>(loaded.reverb_mode));
+                for (int i = 0; i < NUM_PARAMS; ++i) {
+                    mod_norm[i]    = Clamp01(loaded.mod_norm[i]);
+                    delay_norm[i]  = Clamp01(loaded.delay_norm[i]);
+                    reverb_norm[i] = Clamp01(loaded.reverb_norm[i]);
+                }
+                for (int i = 0; i < 3; ++i) {
+                    fx_enabled[i] = loaded.fx_enabled[i];
+                    led_fx[i].Write(fx_enabled[i]);
+                }
+                preset_bank = midi.sysex_bank;
+                preset_slot = midi.sysex_slot;
+            }
+            live_state_dirty = true;
+            last_change_ms   = now;
+        }
+        if (midi.mode_change) {
+            const int idx = midi.mode_index;
+            switch (midi.mode_stage) {
+                case 0: if (idx >= 0 && idx < NUM_MOD_MODES)    SwitchModMode(static_cast<ModModeId>(idx));    break;
+                case 1: if (idx >= 0 && idx < NUM_DELAY_MODES)  SwitchDelayMode(static_cast<DelayModeId>(idx));  break;
+                case 2: if (idx >= 0 && idx < NUM_REVERB_MODES) SwitchReverbMode(static_cast<ReverbModeId>(idx)); break;
+            }
+            live_state_dirty = true;
+            last_change_ms   = now;
+        }
+
         // ── Tempo sync ─────────────────────────────────────────────────────────
         tempo_sync.Process(now);
         const float tempo_s  = tempo_sync.GetOverrideSeconds();
@@ -359,13 +396,14 @@ int main() {
             display.Update(active_page, shift,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
-                           fx_enabled, hold_active, preset_slot,
+                           fx_enabled, hold_active,
+                           preset_bank * PRESET_SLOTS_PER_BANK + preset_slot,
                            PresetUiEvent::None, now);
         }
 
         // ── Live state auto-save (debounced) ──────────────────────────────────
         if (live_state_dirty && (now - last_change_ms) >= kLiveStateSaveDebounceMs) {
-            preset_manager.SaveLiveState(SnapshotLiveState());
+            preset_store.SaveLiveState(SnapshotLiveState());
             live_state_dirty = false;
         }
     }
