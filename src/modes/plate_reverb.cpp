@@ -53,10 +53,9 @@ constexpr size_t kIdif1 = 173;
 constexpr size_t kIdif2 = 611;
 constexpr size_t kIdif3 = 447;
 
-// AP5/AP6 modulated allpass centre delays and LFO depth (±13 samples)
+// AP5/AP6 modulated allpass centre delays; LFO depth set per-block from param1
 constexpr float kAp5Centre  = 1084.0f;
 constexpr float kAp6Centre  = 1465.0f;
-constexpr float kModDepth   = 13.0f;
 
 // Tank A delays
 constexpr float kD5Delay = 7181.0f;
@@ -147,10 +146,10 @@ void PlateReverb::Prepare(const ParamSet& params) {
 
     // LFO rate from mod param: 0.3..2.0 Hz
     const float mod_rate = 0.3f + params.mod * 1.7f;
-    // Param1: 0 = same rate (coherent modulation), 1 = ±12% rate spread (richer)
-    const float spread = params.param1 * 0.12f;
-    lfo_a_.SetRate(mod_rate * (1.0f - spread));
-    lfo_b_.SetRate(mod_rate * (1.0f + spread));
+    // Param1: 0 = tight studio plate (4 samples), 1 = lush shimmer (20 samples)
+    mod_depth_ = 4.0f + params.param1 * 16.0f;
+    lfo_a_.SetRate(mod_rate);
+    lfo_b_.SetRate(mod_rate);
 
     // Param2: 0 = smooth (lower g, more transparent), 1 = raw (higher g, more direct)
     in_g_hi_ = 0.65f + params.param2 * 0.15f;  // 0.65 – 0.80
@@ -191,7 +190,7 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
     // --- Tank A: (s + decay*D8) → AP5(mod) → D5 → LP_A → AP7 → D6 ---
     {
         const float lfo_a   = lfo_a_.Process();
-        const float ap5_d   = kAp5Centre + kModDepth * lfo_a;
+        const float ap5_d   = kAp5Centre + mod_depth_ * lfo_a;
         const float ta_in   = hold_ ? 0.0f : (s + decay_ * d8_fb);
         const float y_ap5   = ap5_.ProcessMod(ta_in, 0.70f, ap5_d);
         d5_.Write(y_ap5);
@@ -207,7 +206,7 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
     // --- Tank B: (s + decay*D6) → AP6(mod) → D7 → LP_B → AP8 → D8 ---
     {
         const float lfo_b   = lfo_b_.Process();
-        const float ap6_d   = kAp6Centre + kModDepth * lfo_b;
+        const float ap6_d   = kAp6Centre + mod_depth_ * lfo_b;
         const float tb_in   = hold_ ? 0.0f : (s + decay_ * d6_fb);
         const float y_ap6   = ap6_.ProcessMod(tb_in, 0.70f, ap6_d);
         d7_.Write(y_ap6);
