@@ -35,6 +35,7 @@ void TapeDelay::Reset() {
     delay_smooth_ = 0.0f;
     aa_state_ = 0.0f;
     aa_coef_  = 1.0f;
+    fb_lim_.Reset();
 }
 
 void TapeDelay::Prepare(const ParamSet& params) {
@@ -95,10 +96,8 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     const float comp = 1.0f / (1.0f + params.grit * 12.33f);
     fb_mono *= comp;
 
-    const float feedback = fb_mono * params.repeats;
+    const float feedback = fb_lim_.Process(fb_mono * params.repeats);
     float write_val = input + feedback;
-    if (write_val >  1.0f) write_val =  1.0f;
-    if (write_val < -1.0f) write_val = -1.0f;
     aa_state_ += aa_coef_ * (write_val - aa_state_);
     tape_line.Write(aa_state_);
 
