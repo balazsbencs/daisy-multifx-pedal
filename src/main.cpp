@@ -212,6 +212,8 @@ int main() {
     hw.StartAudio(AudioEngine::AudioCallback);
 
     uint32_t display_last_ms = 0;
+    static float   cpu_accum_      = 0.0f;
+    static int     cpu_accum_count = 0;
     static bool     mode_hold_consumed  = false;
     static bool     mode_hold_active    = false;
     static uint32_t mode_hold_start_ms  = 0;
@@ -347,6 +349,13 @@ int main() {
         // ── Display ────────────────────────────────────────────────────────────
         if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
             display_last_ms = now;
+            cpu_accum_ += AudioEngine::GetCpuUsage();
+            cpu_accum_count++;
+            if (cpu_accum_count >= 30) {  // update once per ~1 second (30 frames × 33ms)
+                display.SetCpuUsage(cpu_accum_ / static_cast<float>(cpu_accum_count));
+                cpu_accum_      = 0.0f;
+                cpu_accum_count = 0;
+            }
             display.Update(active_page, shift,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
