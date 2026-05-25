@@ -58,7 +58,7 @@ void RotaryMode::Init() {
     xover_.SetQ(0.707f);
     xover_.SetFreq(800.0f);
 
-    // Fixed horn cabinet resonance — bright "honk" of the Leslie horn
+    // Horn cabinet resonance: Q fixed here, frequency updated each Prepare() via tone
     horn_color_l_.SetQ(1.5f);
     horn_color_l_.SetFreq(2500.0f);
     horn_color_r_.SetQ(1.5f);
