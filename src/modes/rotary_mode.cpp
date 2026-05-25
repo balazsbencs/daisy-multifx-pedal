@@ -19,10 +19,10 @@ static constexpr float kHornCenter = 120.0f;
 static constexpr float kDrumCenter = 240.0f;
 
 // Motor inertia: ramp coefficient per Prepare() call (once per BLOCK_SIZE samples).
-// Horn τ ≈ 1.5 s → 1 − exp(−BLOCK_SIZE / (SAMPLE_RATE × 1.5))
-static constexpr float kHornRampCoef = 6.67e-4f;
-// Drum τ ≈ 3.0 s → drum has more physical inertia
-static constexpr float kDrumRampCoef = 3.33e-4f;
+// Horn τ ≈ 1.2 s → coef = 1 − exp(−BLOCK_SIZE / (SAMPLE_RATE × 1.2))
+static constexpr float kHornRampCoef = 8.33e-4f;
+// Drum τ ≈ 2.5 s → coef = 1 − exp(−BLOCK_SIZE / (SAMPLE_RATE × 2.5))
+static constexpr float kDrumRampCoef = 4.00e-4f;
 
 // Leslie 122 canonical chorale (slow) speeds
 static constexpr float kHornChorale = 0.67f;
@@ -103,12 +103,17 @@ void RotaryMode::Prepare(const ParamSet& params) {
     // Tone maps to crossover frequency: 0 → 500 Hz, 1 → 2000 Hz
     xover_.SetFreq(500.0f + params.tone * 1500.0f);
 
+    // Horn cabinet resonance tracks tone: 0 → 1.8 kHz (warm), 1 → 3.5 kHz (bright)
+    const float horn_fc = 1800.0f + params.tone * 1700.0f;
+    horn_color_l_.SetFreq(horn_fc);
+    horn_color_r_.SetFreq(horn_fc);
+
     // Scale p1 to a gentler drive range (max 4× vs Saturation's default 16×).
     // Prevents a loudness jump at moderate P1 settings.
     drive_.SetDrive(params.p1 * 0.2f);
 
     // Cache Depth-derived modulation depths for per-sample use
-    am_depth_ = params.depth * 0.5f;
+    am_depth_ = params.depth * 0.65f;   // Leslie 122: horn sweeps ~65% amplitude
     horn_mod_ = params.depth * 90.0f;   // ±90 samples ≈ ±1.9 ms
     drum_mod_ = params.depth * 180.0f;  // ±180 samples ≈ ±3.75 ms
 }
