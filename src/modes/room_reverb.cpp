@@ -1,5 +1,6 @@
 #include "room_reverb.h"
 #include "daisy_seed.h"
+#include "../config/constants.h"
 
 using namespace pedal::reverb_fx;
 
@@ -66,8 +67,6 @@ void RoomReverb::Init() {
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(2.0f);
     fdn_.SetDamping(0.3f);
-
-    tone_.Init();
 }
 
 void RoomReverb::Reset() {
@@ -75,18 +74,15 @@ void RoomReverb::Reset() {
     er_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_.Init();
 }
 
 void RoomReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    // Higher tone → higher damp coefficient → brighter FDN decay (matches Hall convention)
-    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);
     fdn_.SetModulation(params.mod * 8.0f);
     diffuser_.SetDiffusion(params.param2);
-    tone_.SetKnob(params.tone);
 }
 
 StereoFrame RoomReverb::Process(float input, const ParamSet& /*params*/) {
@@ -105,8 +101,8 @@ StereoFrame RoomReverb::Process(float input, const ParamSet& /*params*/) {
 
     // Tone shaping
     const StereoFrame out{
-        tone_.Process(er.left  * 0.4f + late.left  * 0.6f),
-        tone_.Process(er.right * 0.4f + late.right * 0.6f)
+        er.left  * 0.4f + late.left  * 0.6f,
+        er.right * 0.4f + late.right * 0.6f
     };
     return out;
 }

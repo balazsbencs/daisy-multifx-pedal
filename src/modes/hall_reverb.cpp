@@ -72,8 +72,6 @@ void HallReverb::Init() {
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
-
-    tone_.Init();
 }
 
 void HallReverb::Reset() {
@@ -81,18 +79,16 @@ void HallReverb::Reset() {
     er_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_.Init();
 }
 
 void HallReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    // tone: 0=dark (HF RT60 = 30% of LF), 1=bright (HF RT60 = LF, uniform decay)
+    fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);
     fdn_.SetModulation(params.mod * 8.0f);
-    // Param1 controls pre-diffusion density (0 = minimal, 1 = maximum)
     diffuser_.SetDiffusion(0.35f + params.param1 * 0.45f);
-    tone_.SetKnob(params.tone);
 }
 
 StereoFrame HallReverb::Process(float input, const ParamSet& /*params*/) {
@@ -108,8 +104,8 @@ StereoFrame HallReverb::Process(float input, const ParamSet& /*params*/) {
     const StereoFrame late = fdn_.Process(diffused);
 
     const StereoFrame out{
-        tone_.Process(er.left  * 0.35f + late.left  * 0.65f),
-        tone_.Process(er.right * 0.35f + late.right * 0.65f)
+        er.left  * 0.35f + late.left  * 0.65f,
+        er.right * 0.35f + late.right * 0.65f
     };
     return out;
 }

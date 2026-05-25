@@ -4,7 +4,6 @@
 #include "../dsp/early_reflections.h"
 #include "../dsp/diffuser.h"
 #include "../dsp/fdn.h"
-#include "../dsp/tone_filter.h"
 
 namespace pedal {
 
@@ -23,7 +22,6 @@ private:
     EarlyReflections er_;
     Diffuser         diffuser_;
     Fdn              fdn_;
-    ToneFilter       tone_;
 };
 
 } // namespace pedal
