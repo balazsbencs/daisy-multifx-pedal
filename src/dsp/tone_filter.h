@@ -4,22 +4,36 @@
 
 namespace pedal {
 
+// 2nd-order Direct Form II transposed biquad tone filter.
+// knob: 0=dark LP, 0.5=flat, 1=bright HP blend
 class ToneFilter {
 public:
     void Init();
-    // knob: 0..1. 0=full LP, 0.5=flat, 1=full HP
     void SetKnob(float knob);
     float Process(float sample);
 
 private:
-    // One-pole LP and HP combined
-    float last_knob_ = -1.0f; // sentinel: forces recompute on first call
-    float lp_coef_ = 0.0f;   // LP coefficient
-    float hp_coef_ = 0.0f;   // HP coefficient
-    float lp_mix_  = 1.0f;  // mix between LP and HP output
-    float hp_mix_  = 0.0f;
-    float lp_state_ = 0.0f;
-    float hp_state_ = 0.0f;
+    static void ComputeLpCoeffs(float fc, float q,
+                                float& b0, float& b1, float& b2,
+                                float& a1, float& a2);
+    static void ComputeHpCoeffs(float fc, float q,
+                                float& b0, float& b1, float& b2,
+                                float& a1, float& a2);
+
+    float last_knob_ = -1.0f;
+
+    // LP biquad (DF2T state)
+    float lp_b0_ = 1.0f, lp_b1_ = 0.0f, lp_b2_ = 0.0f;
+    float lp_a1_ = 0.0f, lp_a2_ = 0.0f;
+    float lp_s1_ = 0.0f, lp_s2_ = 0.0f;
+
+    // HP biquad applied to LP output (DF2T state)
+    float hp_b0_ = 1.0f, hp_b1_ = 0.0f, hp_b2_ = 0.0f;
+    float hp_a1_ = 0.0f, hp_a2_ = 0.0f;
+    float hp_s1_ = 0.0f, hp_s2_ = 0.0f;
+
+    float lp_mix_ = 1.0f;
+    float hp_mix_ = 0.0f;
 };
 
 } // namespace pedal
