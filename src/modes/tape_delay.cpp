@@ -36,6 +36,8 @@ void TapeDelay::Reset() {
     aa_state_ = 0.0f;
     aa_coef_  = 1.0f;
     fb_lim_.Reset();
+    pre_shelf_state_  = 0.0f;
+    post_shelf_state_ = 0.0f;
 }
 
 void TapeDelay::Prepare(const ParamSet& params) {
@@ -48,6 +50,11 @@ void TapeDelay::Prepare(const ParamSet& params) {
     const float norm = mod_rate_hz / (10.0f * 50.0f);
     const float aa_fc = fmaxf(20000.0f - norm * 12000.0f, 100.0f);
     aa_coef_ = 1.0f - expf(-2.0f * 3.14159265f * aa_fc * INV_SAMPLE_RATE);
+
+    // HF shelf at ~3 kHz for tape record/reproduce EQ simulation.
+    static constexpr float kShelfFc = 3000.0f;
+    shelf_coef_ = 1.0f - expf(-2.0f * 3.14159265f * kShelfFc * INV_SAMPLE_RATE);
+    shelf_gain_ = params.grit;  // 0 = flat, 1 = full tape EQ
 }
 
 StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
@@ -75,8 +82,20 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
 
     // Feedback is mono-summed and processed through tape color & dynamic HF limiter
     float fb_mono = 0.5f * (wet_l + wet_r);
+
+    // Pre-emphasis: boost HF before saturation (tape record EQ).
+    // HP output = fb_mono - LP(fb_mono), scaled by grit.
+    pre_shelf_state_ += shelf_coef_ * (fb_mono - pre_shelf_state_);
+    const float pre_hp = fb_mono - pre_shelf_state_;
+    fb_mono = fb_mono + shelf_gain_ * pre_hp;
+
     fb_mono = filter_.Process(fb_mono);
     fb_mono = sat_.Process(fb_mono);
+
+    // De-emphasis: attenuate HF after saturation (tape reproduce EQ).
+    post_shelf_state_ += shelf_coef_ * (fb_mono - post_shelf_state_);
+    const float post_hp = fb_mono - post_shelf_state_;
+    fb_mono = fb_mono - shelf_gain_ * post_hp;
 
     // Dynamic HF compression (tape HF demagnetization & saturation):
     // Envelope follower tracks feedback level
