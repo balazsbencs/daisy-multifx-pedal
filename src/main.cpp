@@ -352,11 +352,11 @@ int main() {
                     fx_enabled[i] = loaded.fx_enabled[i];
                     led_fx[i].Write(fx_enabled[i]);
                 }
-                preset_bank = midi.sysex_bank;
-                preset_slot = midi.sysex_slot;
+                preset_bank      = midi.sysex_bank;
+                preset_slot      = midi.sysex_slot;
+                live_state_dirty = true;
+                last_change_ms   = now;
             }
-            live_state_dirty = true;
-            last_change_ms   = now;
         }
         if (midi.mode_change) {
             const int idx = midi.mode_index;
