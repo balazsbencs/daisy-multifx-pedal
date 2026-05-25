@@ -1,6 +1,7 @@
 #include "audio_engine.h"
 #include "util/scopedirqblocker.h"
 #include "../dsp/fast_math.h"
+#include "../config/constants.h"
 
 using namespace daisy;
 
@@ -27,8 +28,13 @@ void AudioEngine::Init(DaisySeed* hw) {
 
     // Enable DWT cycle counter for CPU load measurement
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0;
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+    // Derive cycles-per-block from the actual system clock so the CPU meter
+    // is correct regardless of whether the hardware runs at 400 or 480 MHz.
+    // Divide before multiplying to avoid 32-bit overflow.
+    cycles_per_block_ = (daisy::System::GetSysClkFreq() / static_cast<uint32_t>(SAMPLE_RATE))
+                        * static_cast<uint32_t>(BLOCK_SIZE);
 }
 
 void AudioEngine::SetModMode(ModMode* m) {
@@ -137,10 +143,8 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
     }
 
     const uint32_t t1 = DWT->CYCCNT;
-    // 480 MHz * 48 samples / 48000 Hz = 480000 cycles per block
-    static constexpr uint32_t kCyclesPerBlock = 480000u;
     const uint32_t elapsed = t1 - t0;
-    cpu_usage_ = static_cast<float>(elapsed) / static_cast<float>(kCyclesPerBlock);
+    cpu_usage_ = static_cast<float>(elapsed) / static_cast<float>(cycles_per_block_);
     if (cpu_usage_ > 1.0f) cpu_usage_ = 1.0f;
 }
 

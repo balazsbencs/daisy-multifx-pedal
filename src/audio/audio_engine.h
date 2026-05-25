@@ -30,6 +30,8 @@ public:
     void SetReverbMode(ReverbMode* m);
     void SetParams(const MultiParamBuf& params);
     void SetHold(bool hold);
+    // Intentionally unsynchronised: a 4-byte aligned volatile float read is
+    // atomic on Cortex-M7; stale-by-one-block is acceptable for a 30 Hz display.
     static float GetCpuUsage() { return cpu_usage_; }
 
     static void AudioCallback(daisy::AudioHandle::InputBuffer  in,
@@ -56,6 +58,7 @@ private:
     volatile bool new_hold_       = false;
 
     static volatile float cpu_usage_;
+    uint32_t cycles_per_block_ = 480000u;  // computed in Init() from actual clock
 
     // Per-stage cached mix coefficients
     float last_mod_mix_   = -1.0f;
