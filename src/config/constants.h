@@ -30,9 +30,11 @@ constexpr uint32_t ENCODER_FAST_WINDOW_MS = 40;
 constexpr float    POT_SMOOTH             = 0.033f;
 
 // Presets
-constexpr int      PRESET_SLOT_COUNT = 8;
-constexpr uint32_t PRESET_HOLD_MS   = 700;
-constexpr uint32_t PRESET_STATUS_MS = 1000;
+constexpr int      PRESET_SLOT_COUNT     = 100;
+constexpr int      PRESET_BANK_COUNT     = 10;
+constexpr int      PRESET_SLOTS_PER_BANK = 10;
+constexpr uint32_t PRESET_HOLD_MS        = 700;
+constexpr uint32_t PRESET_STATUS_MS      = 1000;
 
 // MIDI CC ranges — three consecutive blocks of 7
 constexpr uint8_t CC_MOD_BASE    = 14;  // CC 14–20: modulation params
