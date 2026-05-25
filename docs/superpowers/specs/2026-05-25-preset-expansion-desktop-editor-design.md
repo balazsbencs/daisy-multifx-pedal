@@ -77,23 +77,24 @@ Binary payload uses standard MIDI 7-bit encoding: every 7 bytes of binary become
 
 ### Host → Device Commands
 
-| Cmd | Name | Payload |
-|-----|------|---------|
-| `01` | `GET_PRESET` | `bank(1) slot(1)` |
-| `02` | `PUT_PRESET` | `bank(1) slot(1) name[12] data[92]` (7-bit encoded) |
-| `03` | `GET_HEADER` | *(none)* |
-| `04` | `SET_ACTIVE` | `bank(1) slot(1)` |
-| `05` | `GET_ALL` | *(none)* — device streams 100 × `PRESET_DATA` |
-| `06` | `PUT_ALL` | host streams 100 × `PUT_PRESET` frames; device sends `ACK` after each one |
-| `07` | `SET_MODE` | `stage(1) mode_index(1)` — stage: 0=mod, 1=delay, 2=reverb |
+| Cmd | Name | Payload | Response |
+|-----|------|---------|----------|
+| `01` | `GET_PRESET` | `bank(1) slot(1)` | `PRESET_DATA` |
+| `02` | `PUT_PRESET` | `bank(1) slot(1) name[12] encoded_data` | `ACK` |
+| `04` | `SET_ACTIVE` | `bank(1) slot(1)` | `ACK` |
+| `05` | `GET_ALL` | *(none)* | 100 × `PRESET_DATA` |
+| `07` | `SET_MODE` | `stage(1) mode_index(1)` — stage: 0=mod, 1=delay, 2=reverb | `ACK` |
+
+Bulk upload = 100 sequential `PUT_PRESET` (cmd `02`) calls; the desktop app sends them one at a time and waits for `ACK` before sending the next.
 
 ### Device → Host Responses
 
 | Cmd | Name | Payload |
 |-----|------|---------|
-| `81` | `PRESET_DATA` | `bank slot name[12] data[92]` (7-bit encoded) |
-| `82` | `HEADER_DATA` | `active_bank active_slot name[100][12]` |
-| `83` | `ACK` | `cmd_echo status` (0=ok, 1=err) |
+| `81` | `PRESET_DATA` | `bank(1) slot(1) name[12] encoded_data` |
+| `83` | `ACK` | `cmd_echo(1) status(1) active_bank(1) active_slot(1)` (status: 0=ok, 1=err) |
+
+**7-bit encoding of `data[92]`:** libDaisy caps `SYSEX_BUFFER_LEN` at 128 bytes. The encoded 92-byte float blob is 106 bytes (13 groups of 7 → 104 + 1 tail group → 106). Total frame payload: `mfr(1) + cmd(1) + bank(1) + slot(1) + name[12] + encoded[106]` = 122 bytes — fits within 128.
 
 Real-time parameter control uses existing CC 14–34 — no SysEx involved.
 
