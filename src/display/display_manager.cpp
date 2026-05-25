@@ -245,6 +245,23 @@ void DisplayManager::Render(int           active_page,
                                   "ERR", kColorRed, kColorBlack, Font_6x8);
     }
 
+    // CPU usage: always shown, centre of status row
+    {
+        char cpu_buf[8];
+        const int pct = static_cast<int>(cpu_usage_ * 100.0f + 0.5f);
+        cpu_buf[0] = 'C'; cpu_buf[1] = 'P'; cpu_buf[2] = 'U'; cpu_buf[3] = ' ';
+        if (pct >= 100) {
+            cpu_buf[4] = '1'; cpu_buf[5] = '0'; cpu_buf[6] = '0'; cpu_buf[7] = '\0';
+        } else {
+            cpu_buf[4] = static_cast<char>('0' + pct / 10);
+            cpu_buf[5] = static_cast<char>('0' + pct % 10);
+            cpu_buf[6] = '%'; cpu_buf[7] = '\0';
+        }
+        const uint16_t cpu_color = (pct >= 80) ? kColorRed : kColorWhite;
+        DisplayRenderer::DrawText(90, layout::STATUS_Y, cpu_buf,
+                                  cpu_color, kColorBlack, Font_6x8);
+    }
+
     // ── Chain strip (y=292..319) ──────────────────────────────────────────────
     // Three sections: [MOD: <name>] > [DLY: <name>] > [REV: <name>]
     // Disabled sections render in kColorDim with a strikethrough across the name.
@@ -302,16 +319,30 @@ const char* DisplayManager::DelayModeName(DelayModeId id) {
         case DelayModeId::Tape:    return "Tape";
         case DelayModeId::Dual:    return "Dual";
         case DelayModeId::Filter:  return "FiltDly";
+        case DelayModeId::Lofi:    return "Lofi";
+        case DelayModeId::DBucket: return "BBD";
+        case DelayModeId::Duck:    return "Duck";
+        case DelayModeId::Pattern: return "Pattern";
+        case DelayModeId::Swell:   return "SwellDly";
+        case DelayModeId::Trem:    return "Trem";
         default: return "?";
     }
 }
 
 const char* DisplayManager::ReverbModeName(ReverbModeId id) {
     switch (id) {
-        case ReverbModeId::Room:   return "Room";
-        case ReverbModeId::Hall:   return "Hall";
-        case ReverbModeId::Plate:  return "Plate";
-        case ReverbModeId::Spring: return "Spring";
+        case ReverbModeId::Room:        return "Room";
+        case ReverbModeId::Hall:        return "Hall";
+        case ReverbModeId::Plate:       return "Plate";
+        case ReverbModeId::Spring:      return "Spring";
+        case ReverbModeId::Bloom:       return "Bloom";
+        case ReverbModeId::Cloud:       return "Cloud";
+        case ReverbModeId::Shimmer:     return "Shimmer";
+        case ReverbModeId::Chorale:     return "Chorale";
+        case ReverbModeId::Nonlinear:   return "NonLin";
+        case ReverbModeId::Swell:       return "Swell";
+        case ReverbModeId::Magneto:     return "Magneto";
+        case ReverbModeId::Reflections: return "Reflect";
         default: return "?";
     }
 }
