@@ -93,6 +93,8 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     fb_mono = sat_.Process(fb_mono);
 
     // De-emphasis: attenuate HF after saturation (tape reproduce EQ).
+    // States are independent — pair cancels only approximately; residual HF boost
+    // proportional to saturation nonlinearity is the intended tape character.
     post_shelf_state_ += shelf_coef_ * (fb_mono - post_shelf_state_);
     const float post_hp = fb_mono - post_shelf_state_;
     fb_mono = fb_mono - shelf_gain_ * post_hp;
