@@ -25,6 +25,8 @@ private:
     float      env_state_ = 0.0f;
     float      tape_lp_ = 0.0f;
     float      delay_smooth_ = 0.0f;
+    float aa_state_ = 0.0f;
+    float aa_coef_  = 1.0f;
 };
 
 } // namespace pedal

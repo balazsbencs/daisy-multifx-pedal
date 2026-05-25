@@ -20,6 +20,9 @@ private:
     ToneFilter filter_r_;
     DcBlocker  dc_l_;
     DcBlocker  dc_r_;
+    float aa_state_l_ = 0.0f;  // anti-alias LP state for L write
+    float aa_state_r_ = 0.0f;  // anti-alias LP state for R write
+    float aa_coef_    = 1.0f;  // LP coefficient (1.0 = bypass)
     float      delay_smooth_l_ = 0.0f;
     float      delay_smooth_r_ = 0.0f;
 };
