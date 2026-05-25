@@ -3,6 +3,7 @@
 #include "../dsp/lfo.h"
 #include "../dsp/tone_filter.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/feedback_limiter.h"
 
 namespace pedal {
 
@@ -25,6 +26,8 @@ private:
     float aa_coef_    = 1.0f;  // LP coefficient (1.0 = bypass)
     float      delay_smooth_l_ = 0.0f;
     float      delay_smooth_r_ = 0.0f;
+    FeedbackLimiter fb_lim_l_;
+    FeedbackLimiter fb_lim_r_;
 };
 
 } // namespace pedal
