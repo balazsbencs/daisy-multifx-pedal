@@ -40,7 +40,9 @@ constexpr uint16_t BAR_W           = 148;
 // ── Status row (y=280..291, h=12) ─────────────────────────────────────────────
 constexpr uint16_t STATUS_Y       = 282;
 constexpr uint16_t HOLD_X         = 4;
+constexpr uint16_t CPU_X          = 90;
 constexpr uint16_t PRESET_EVT_X   = 174;
+constexpr int      CPU_WARN_PCT   = 80;
 
 // ── Chain strip (y=292..319, h=28) ────────────────────────────────────────────
 constexpr uint16_t CHAIN_Y        = 292;

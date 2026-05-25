@@ -32,7 +32,7 @@ public:
     void SetHold(bool hold);
     // Intentionally unsynchronised: a 4-byte aligned volatile float read is
     // atomic on Cortex-M7; stale-by-one-block is acceptable for a 30 Hz display.
-    static float GetCpuUsage() { return cpu_usage_; }
+    static float GetCpuUsage() { return static_cast<float>(cpu_usage_); }
 
     static void AudioCallback(daisy::AudioHandle::InputBuffer  in,
                               daisy::AudioHandle::OutputBuffer out,

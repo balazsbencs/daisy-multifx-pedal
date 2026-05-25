@@ -257,8 +257,8 @@ void DisplayManager::Render(int           active_page,
             cpu_buf[5] = static_cast<char>('0' + pct % 10);
             cpu_buf[6] = '%'; cpu_buf[7] = '\0';
         }
-        const uint16_t cpu_color = (pct >= 80) ? kColorRed : kColorWhite;
-        DisplayRenderer::DrawText(90, layout::STATUS_Y, cpu_buf,
+        const uint16_t cpu_color = (pct >= layout::CPU_WARN_PCT) ? kColorRed : kColorWhite;
+        DisplayRenderer::DrawText(layout::CPU_X, layout::STATUS_Y, cpu_buf,
                                   cpu_color, kColorBlack, Font_6x8);
     }
 
