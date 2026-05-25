@@ -15,9 +15,9 @@ constexpr size_t MAX_DELAY_SAMPLES = static_cast<size_t>(SAMPLE_RATE * 3.0f);
 constexpr size_t MAX_MOD_DELAY_SAMPLES = static_cast<size_t>(SAMPLE_RATE * 0.025f);
 
 // Number of modes per effect slot
-constexpr int NUM_DELAY_MODES  = 4;
+constexpr int NUM_DELAY_MODES  = 10;
 constexpr int NUM_MOD_MODES    = 6;
-constexpr int NUM_REVERB_MODES = 4;
+constexpr int NUM_REVERB_MODES = 12;
 
 // Parameters per effect slot
 constexpr int NUM_PARAMS = 7;
@@ -41,7 +41,8 @@ constexpr uint8_t CC_REVERB_BASE = 28;  // CC 28–34: reverb params
 constexpr uint8_t CC_HOLD        = 65;  // reverb hold toggle
 
 // Display
-constexpr uint32_t DISPLAY_UPDATE_MS = 33;  // ~30fps
+constexpr uint32_t DISPLAY_UPDATE_MS  = 33;   // ~30fps
+constexpr int      CPU_AVERAGE_FRAMES = 1000u / DISPLAY_UPDATE_MS;  // ~1s averaging window
 
 // Tap tempo
 constexpr int      TAP_MAX_TAPS   = 4;
