@@ -27,6 +27,12 @@ CPP_SOURCES = \
     src/modes/tape_delay.cpp \
     src/modes/dual_delay.cpp \
     src/modes/filter_delay.cpp \
+    src/modes/lofi_delay.cpp \
+    src/modes/dbucket_delay.cpp \
+    src/modes/duck_delay.cpp \
+    src/modes/pattern_delay.cpp \
+    src/modes/swell_delay.cpp \
+    src/modes/trem_delay.cpp \
     src/modes/delay_mode_registry.cpp \
     \
     src/modes/chorus_mode.cpp \
@@ -41,6 +47,14 @@ CPP_SOURCES = \
     src/modes/hall_reverb.cpp \
     src/modes/plate_reverb.cpp \
     src/modes/spring_reverb.cpp \
+    src/modes/bloom_reverb.cpp \
+    src/modes/cloud_reverb.cpp \
+    src/modes/shimmer_reverb.cpp \
+    src/modes/chorale_reverb.cpp \
+    src/modes/nonlinear_reverb.cpp \
+    src/modes/swell_reverb.cpp \
+    src/modes/magneto_reverb.cpp \
+    src/modes/reflections_reverb.cpp \
     src/modes/reverb_mode_registry.cpp \
     \
     src/midi/midi_handler.cpp \
