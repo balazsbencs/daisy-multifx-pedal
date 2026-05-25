@@ -1,9 +1,9 @@
 #include "tone_filter.h"
-#include <cmath>
 
 namespace pedal {
 
-static constexpr float kTwoPi = 6.28318530717958647692f;
+static constexpr float kTwoPi        = 6.28318530717958647692f;
+static constexpr float kButterworthQ = 0.707106781f;  // 1/sqrt(2): maximally flat
 
 void ToneFilter::ComputeLpCoeffs(float fc, float q,
                                   float& b0, float& b1, float& b2,
@@ -40,6 +40,8 @@ void ToneFilter::Init() {
 }
 
 void ToneFilter::SetKnob(float knob) {
+    // Float equality is intentional: knob comes from a quantized pot/param
+    // value, not from arithmetic, so bit-identical repeats are expected.
     if (knob == last_knob_) return;
     last_knob_ = knob;
 
@@ -58,15 +60,15 @@ void ToneFilter::SetKnob(float knob) {
         hp_mix_  = t;
     }
 
-    ComputeLpCoeffs(lp_fc, 0.707f, lp_b0_, lp_b1_, lp_b2_, lp_a1_, lp_a2_);
-    ComputeHpCoeffs(hp_fc, 0.707f, hp_b0_, hp_b1_, hp_b2_, hp_a1_, hp_a2_);
+    ComputeLpCoeffs(lp_fc, kButterworthQ, lp_b0_, lp_b1_, lp_b2_, lp_a1_, lp_a2_);
+    ComputeHpCoeffs(hp_fc, kButterworthQ, hp_b0_, hp_b1_, hp_b2_, hp_a1_, hp_a2_);
 }
 
-float ToneFilter::Process(float x) {
+float ToneFilter::Process(float sample) {
     // LP biquad — Direct Form II transposed
-    const float lp_y = lp_b0_ * x + lp_s1_;
-    lp_s1_ = lp_b1_ * x - lp_a1_ * lp_y + lp_s2_;
-    lp_s2_ = lp_b2_ * x - lp_a2_ * lp_y;
+    const float lp_y = lp_b0_ * sample + lp_s1_;
+    lp_s1_ = lp_b1_ * sample - lp_a1_ * lp_y + lp_s2_;
+    lp_s2_ = lp_b2_ * sample - lp_a2_ * lp_y;
 
     // HP biquad applied to LP output (series connection)
     const float hp_y = hp_b0_ * lp_y + hp_s1_;
