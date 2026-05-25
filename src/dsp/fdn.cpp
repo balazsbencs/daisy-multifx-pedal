@@ -47,6 +47,28 @@ void Fdn::SetDamping(float damp) {
     damp_ = damp < 0.0f ? 0.0f : (damp > 1.0f ? 1.0f : damp);
 }
 
+void Fdn::SetDampFromRt60Ratio(float rt60_lf_s, float hf_ratio) {
+    if (rt60_lf_s <= 0.0f) rt60_lf_s = 0.001f;
+    if (hf_ratio  <  0.01f) hf_ratio = 0.01f;
+    if (hf_ratio  >  1.0f)  hf_ratio = 1.0f;
+
+    const float rt60_hf_s = rt60_lf_s * hf_ratio;
+
+    // Use median line delay for the approximation.
+    const int   mid       = n_lines_ / 2;
+    const float delay_med = delay_s_[mid];
+
+    const float g_lf = expf(-6.9078f * delay_med / rt60_lf_s);
+    const float g_hf = expf(-6.9078f * delay_med / rt60_hf_s);
+
+    // From LP filter Nyquist gain: g_nyquist = damp/(2-damp)
+    // Solve: damp = 2*g_hf / (g_lf + g_hf)
+    const float g_sum = g_lf + g_hf;
+    damp_ = (g_sum > 0.001f) ? (2.0f * g_hf / g_sum) : 0.5f;
+    if (damp_ < 0.01f) damp_ = 0.01f;
+    if (damp_ > 1.0f)  damp_ = 1.0f;
+}
+
 void Fdn::SetModulation(float depth_samples) {
     // Cap depth to 8 samples (~5 cents at 2.52 Hz) to stay below audible flutter threshold.
     const float clamped = depth_samples < 0.0f ? 0.0f : depth_samples;

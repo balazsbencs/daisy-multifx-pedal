@@ -34,6 +34,10 @@ public:
     // One-pole LP coefficient in feedback path (0=none, higher=more damping).
     void SetDamping(float damp);
 
+    // Compute damping from RT60 targets. hf_ratio: HF RT60 = rt60_lf_s * hf_ratio.
+    // 0.3 = very dark (HF decays 3× faster), 1.0 = uniform (all frequencies decay equally).
+    void SetDampFromRt60Ratio(float rt60_lf_s, float hf_ratio);
+
     // Per-line LFO modulation depth in samples (0 = no modulation).
     void SetModulation(float depth_samples);
 
