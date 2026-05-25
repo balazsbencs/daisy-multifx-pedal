@@ -137,6 +137,8 @@ Advancing past slot 9 increments the bank; advancing past bank 9 wraps to bank 0
 
 ## Section 5: Tauri Desktop App
 
+**Location:** `editor/` subdirectory inside this repo (not a separate repository). All paths below are relative to `editor/`.
+
 **Stack:** Tauri 2.x · Rust backend · React + TypeScript · Tailwind CSS · shadcn/ui · react-knob-headless
 
 ### Rust backend (`src-tauri/src/`)
@@ -174,20 +176,70 @@ Advancing past slot 9 increments the bank; advancing past bank 9 wraps to bank 0
 
 **Preset browser:** shadcn `Tabs` for bank, grid of shadcn `Card` for slots. Clicking a slot sends `SET_ACTIVE` SysEx. "Sync All" triggers `GET_ALL`. Export serialises all 100 presets to a `.multifx` JSON file; Import reads it and sends `PUT_ALL`.
 
-### Frontend project structure
+### Project structure
 
 ```
-src/
-├── App.tsx
-├── components/
-│   ├── StageCard.tsx          ← shadcn Card wrapping knobs + mode picker
-│   ├── KnobPanel.tsx          ← react-knob-headless + Tailwind styling
-│   ├── ModeSelector.tsx       ← shadcn Select
-│   ├── PresetBrowser.tsx      ← shadcn Tabs + Card grid
-│   └── ExportDialog.tsx       ← shadcn Dialog
-└── hooks/
-    └── useMidi.ts             ← wraps Tauri invoke calls
+editor/                        ← lives inside the multi-fx repo
+├── src-tauri/
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── midi.rs
+│   │   ├── sysex.rs
+│   │   └── commands.rs
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── src/
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── StageCard.tsx      ← shadcn Card wrapping knobs + mode picker
+│   │   ├── KnobPanel.tsx      ← react-knob-headless + Tailwind styling
+│   │   ├── ModeSelector.tsx   ← shadcn Select
+│   │   ├── PresetBrowser.tsx  ← shadcn Tabs + Card grid
+│   │   └── ExportDialog.tsx   ← shadcn Dialog
+│   └── hooks/
+│       └── useMidi.ts         ← wraps Tauri invoke calls
+├── package.json
+└── vite.config.ts
 ```
+
+---
+
+## Section 6: GitHub Actions Release Pipeline
+
+**Trigger:** push of a tag matching `editor-v*` (e.g. `editor-v1.0.0`). Keeps editor releases decoupled from firmware tags.
+
+**Workflow file:** `.github/workflows/editor-release.yml`
+
+**Build matrix:** three runners in parallel.
+
+| Runner | Output |
+|--------|--------|
+| `macos-latest` | `.dmg` (universal binary — arm64 + x86_64 via cross-compile) |
+| `windows-latest` | `.msi` (NSIS installer) |
+| `ubuntu-22.04` | `.AppImage` + `.deb` |
+
+**Pipeline steps (each runner):**
+
+```
+1. checkout
+2. install Node (via actions/setup-node, version from .nvmrc)
+3. install Rust stable (via dtolnay/rust-toolchain)
+4. cache: Cargo registry + target/, node_modules
+5. install frontend deps  →  npm ci (inside editor/)
+6. tauri-apps/tauri-action@v0
+     projectPath: editor/
+     tagName: ${{ github.ref_name }}
+     releaseName: "Multi-FX Editor ${{ github.ref_name }}"
+     releaseBody: auto-generated from tag annotation
+     releaseDraft: false
+     prerelease: false
+```
+
+`tauri-apps/tauri-action` handles creating the GitHub Release and uploading all platform artifacts automatically. macOS universal binary requires adding `aarch64-apple-darwin` to the Rust target list in the workflow.
+
+**No code-signing secrets required for v1** — users will need to approve the app on first launch (macOS Gatekeeper bypass via right-click → Open; Windows SmartScreen). Code signing can be added later via GitHub Actions secrets when a cert is available.
+
+---
 
 ### `.multifx` file format
 
