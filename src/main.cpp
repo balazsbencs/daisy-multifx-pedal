@@ -55,6 +55,18 @@ static bool     live_state_dirty            = false;
 static uint32_t last_change_ms              = 0;
 constexpr uint32_t kLiveStateSaveDebounceMs = 2000;
 
+// Preset browse mode
+enum class PresetMode { Normal, Browse };
+static PresetMode preset_mode         = PresetMode::Normal;
+static int        browse_bank         = 0;
+static int        browse_slot         = 0;
+static bool       tap_preset_pending  = false;
+static uint32_t   tap_hold_start_ms   = 0;
+static uint32_t   last_browse_ms      = 0;
+static constexpr uint32_t kPresetEntryHoldMs      = 1000u;
+static constexpr uint32_t kPresetInactivityMs     = 3000u;
+static constexpr uint32_t kPresetLedBlinkPeriodMs = 500u;
+
 // Status LEDs (one per effect footswitch)
 static daisy::GPIO led_fx[3];
 
@@ -158,6 +170,25 @@ static void SwitchReverbMode(ReverbModeId id) {
     audio_engine.SetReverbMode(reverb_registry.get(id));
 }
 
+static void LoadPreset(int bank, int slot) {
+    MultiPresetSlot p{};
+    if (!preset_store.LoadSlot(bank, slot, p)) return;
+    if (p.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES))    SwitchModMode(static_cast<ModModeId>(p.mod_mode));
+    if (p.delay_mode  < static_cast<uint8_t>(NUM_DELAY_MODES))  SwitchDelayMode(static_cast<DelayModeId>(p.delay_mode));
+    if (p.reverb_mode < static_cast<uint8_t>(NUM_REVERB_MODES)) SwitchReverbMode(static_cast<ReverbModeId>(p.reverb_mode));
+    for (int i = 0; i < NUM_PARAMS; ++i) {
+        mod_norm[i]    = Clamp01(p.mod_norm[i]);
+        delay_norm[i]  = Clamp01(p.delay_norm[i]);
+        reverb_norm[i] = Clamp01(p.reverb_norm[i]);
+    }
+    for (int i = 0; i < 3; ++i) {
+        fx_enabled[i] = p.fx_enabled[i];
+        led_fx[i].Write(fx_enabled[i]);
+    }
+    preset_bank = bank;
+    preset_slot = slot;
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 int main() {
     hw.Init();
@@ -225,13 +256,49 @@ int main() {
         controls.Poll();
         const ControlState& ctrl = controls.state();
 
-        // ── Effect on/off footswitches ───────────────────────────────────────
-        for (int i = 0; i < 3; ++i) {
-            if (ctrl.fx_pressed[i]) {
-                fx_enabled[i]    = !fx_enabled[i];
-                led_fx[i].Write(fx_enabled[i]);
-                live_state_dirty = true;
-                last_change_ms   = now;
+        // ── Effect footswitches (normal) / browse nav (preset mode) ────────────
+        if (preset_mode == PresetMode::Normal) {
+            for (int i = 0; i < 3; ++i) {
+                if (ctrl.fx_pressed[i]) {
+                    fx_enabled[i]    = !fx_enabled[i];
+                    led_fx[i].Write(fx_enabled[i]);
+                    live_state_dirty = true;
+                    last_change_ms   = now;
+                }
+            }
+        } else { // PresetMode::Browse
+            // fx[0]=MOD → prev, fx[1]=DELAY → save, fx[2]=REVERB → next
+            if (ctrl.fx_pressed[0]) {
+                if (--browse_slot < 0) {
+                    browse_slot = PRESET_SLOTS_PER_BANK - 1;
+                    browse_bank = (browse_bank - 1 + PRESET_BANK_COUNT) % PRESET_BANK_COUNT;
+                }
+                LoadPreset(browse_bank, browse_slot);
+                last_browse_ms = now;
+            }
+            if (ctrl.fx_pressed[2]) {
+                if (++browse_slot >= PRESET_SLOTS_PER_BANK) {
+                    browse_slot = 0;
+                    browse_bank = (browse_bank + 1) % PRESET_BANK_COUNT;
+                }
+                LoadPreset(browse_bank, browse_slot);
+                last_browse_ms = now;
+            }
+            if (ctrl.fx_pressed[1]) {
+                const MultiPresetSlot snap = SnapshotLiveState();
+                preset_store.SaveSlot(browse_bank, browse_slot, snap);
+                last_browse_ms = now;
+            }
+
+            // Blink all three LEDs at 2 Hz.
+            const bool blink_on = ((now % kPresetLedBlinkPeriodMs) < (kPresetLedBlinkPeriodMs / 2u));
+            for (int i = 0; i < 3; ++i) led_fx[i].Write(blink_on);
+
+            // Auto-exit after inactivity.
+            if ((now - last_browse_ms) >= kPresetInactivityMs) {
+                LoadPreset(preset_store.GetActiveBank(), preset_store.GetActiveSlot());
+                preset_mode = PresetMode::Normal;
+                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
             }
         }
 
@@ -302,19 +369,41 @@ int main() {
         }
 
         // ── Tap footswitch ─────────────────────────────────────────────────────
-        if (ctrl.tap_pressed) {
-            tempo_sync.OnTap(now);
-        }
-        if (ctrl.tap_held && ctrl.tap_held_ms > 500) {
-            if (!hold_active) {
+        if (preset_mode == PresetMode::Normal) {
+            if (ctrl.tap_pressed) {
+                tap_hold_start_ms  = now;
+                tap_preset_pending = false;
+                tempo_sync.OnTap(now);
+            }
+            if (ctrl.tap_held && !tap_preset_pending &&
+                (now - tap_hold_start_ms) >= kPresetEntryHoldMs) {
+                tap_preset_pending = true;
+                if (hold_active) { hold_active = false; audio_engine.SetHold(false); }
+            }
+            if (!tap_preset_pending && ctrl.tap_held &&
+                ctrl.tap_held_ms > 500 && !hold_active) {
                 hold_active = true;
                 audio_engine.SetHold(true);
             }
-        }
-        if (ctrl.tap_released && ctrl.tap_held_ms <= 500) {
-            if (hold_active) {
-                hold_active = false;
-                audio_engine.SetHold(false);
+            if (ctrl.tap_released) {
+                if (tap_preset_pending) {
+                    browse_bank        = preset_bank;
+                    browse_slot        = preset_slot;
+                    preset_mode        = PresetMode::Browse;
+                    last_browse_ms     = now;
+                    tap_preset_pending = false;
+                } else if (hold_active && ctrl.tap_held_ms <= 500) {
+                    hold_active = false;
+                    audio_engine.SetHold(false);
+                }
+            }
+        } else { // PresetMode::Browse
+            if (ctrl.tap_pressed) {
+                preset_store.SetActive(browse_bank, browse_slot);
+                preset_bank = browse_bank;
+                preset_slot = browse_slot;
+                preset_mode = PresetMode::Normal;
+                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
             }
         }
 
@@ -334,29 +423,9 @@ int main() {
         if (midi.clock_stop) tempo_sync.OnMidiStop();
 
         if (midi.preset_load) {
-            MultiPresetSlot loaded;
-            if (preset_store.LoadSlot(midi.sysex_bank, midi.sysex_slot, loaded) &&
-                loaded.valid &&
-                loaded.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES) &&
-                loaded.delay_mode  < static_cast<uint8_t>(NUM_DELAY_MODES) &&
-                loaded.reverb_mode < static_cast<uint8_t>(NUM_REVERB_MODES)) {
-                SwitchModMode(static_cast<ModModeId>(loaded.mod_mode));
-                SwitchDelayMode(static_cast<DelayModeId>(loaded.delay_mode));
-                SwitchReverbMode(static_cast<ReverbModeId>(loaded.reverb_mode));
-                for (int i = 0; i < NUM_PARAMS; ++i) {
-                    mod_norm[i]    = Clamp01(loaded.mod_norm[i]);
-                    delay_norm[i]  = Clamp01(loaded.delay_norm[i]);
-                    reverb_norm[i] = Clamp01(loaded.reverb_norm[i]);
-                }
-                for (int i = 0; i < 3; ++i) {
-                    fx_enabled[i] = loaded.fx_enabled[i];
-                    led_fx[i].Write(fx_enabled[i]);
-                }
-                preset_bank      = midi.sysex_bank;
-                preset_slot      = midi.sysex_slot;
-                live_state_dirty = true;
-                last_change_ms   = now;
-            }
+            LoadPreset(midi.sysex_bank, midi.sysex_slot);
+            live_state_dirty = true;
+            last_change_ms   = now;
         }
         if (midi.mode_change) {
             const int idx = midi.mode_index;
