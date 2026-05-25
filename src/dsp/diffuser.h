@@ -7,7 +7,9 @@ namespace pedal {
 class Diffuser {
 public:
     static constexpr int    STAGES = 4;
-    static constexpr size_t kDelays[STAGES] = {142, 107, 672, 413};
+    // Mutually co-prime, Fibonacci-ratio spacing (each ≈ 1.618× previous).
+    // All four are prime → GCD of any pair = 1 → even modal distribution.
+    static constexpr size_t kDelays[STAGES] = {149, 241, 389, 631};
 
     void Init(float* bufs[STAGES], const size_t sizes[STAGES]) {
         for (int i = 0; i < STAGES; ++i) {
