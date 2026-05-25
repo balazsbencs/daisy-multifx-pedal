@@ -55,8 +55,9 @@ private:
     float in_g_hi_ = 0.75f;   // 0.65 – 0.80 (higher gain)
     float in_g_lo_ = 0.625f;  // 0.50 – 0.65 (lower gain)
 
-    float decay_ = 0.5f;
-    bool  hold_  = false;
+    float decay_     = 0.5f;
+    float mod_depth_ = 13.0f;  // LFO depth in samples; set from param1 in Prepare()
+    bool  hold_      = false;
 };
 
 } // namespace pedal
