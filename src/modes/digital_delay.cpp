@@ -32,6 +32,9 @@ void DigitalDelay::Reset() {
     dc_r_.Init();
     delay_smooth_l_ = 0.0f;
     delay_smooth_r_ = 0.0f;
+    aa_state_l_ = 0.0f;
+    aa_state_r_ = 0.0f;
+    aa_coef_    = 1.0f;
 }
 
 void DigitalDelay::Prepare(const ParamSet& params) {
@@ -42,7 +45,7 @@ void DigitalDelay::Prepare(const ParamSet& params) {
     // At zero mod this is transparent (coef=1). At max mod it rolls off ~8 kHz.
     const float mod_rate_hz = params.mod_spd * params.mod_dep * 30.0f;
     const float norm = mod_rate_hz / (10.0f * 30.0f);  // max speed × max depth_samples
-    const float aa_fc = 20000.0f - norm * 12000.0f;     // 20kHz → 8kHz
+    const float aa_fc = fmaxf(20000.0f - norm * 12000.0f, 100.0f);  // 20kHz → 8kHz, floor 100Hz
     aa_coef_ = 1.0f - expf(-2.0f * 3.14159265f * aa_fc * INV_SAMPLE_RATE);
 }
 

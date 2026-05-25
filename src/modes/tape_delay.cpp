@@ -33,6 +33,8 @@ void TapeDelay::Reset() {
     env_state_ = 0.0f;
     tape_lp_ = 0.0f;
     delay_smooth_ = 0.0f;
+    aa_state_ = 0.0f;
+    aa_coef_  = 1.0f;
 }
 
 void TapeDelay::Prepare(const ParamSet& params) {
@@ -43,7 +45,7 @@ void TapeDelay::Prepare(const ParamSet& params) {
     const float flutter = params.mod_dep * 50.0f;
     const float mod_rate_hz = params.mod_spd * flutter;
     const float norm = mod_rate_hz / (10.0f * 50.0f);
-    const float aa_fc = 20000.0f - norm * 12000.0f;
+    const float aa_fc = fmaxf(20000.0f - norm * 12000.0f, 100.0f);
     aa_coef_ = 1.0f - expf(-2.0f * 3.14159265f * aa_fc * INV_SAMPLE_RATE);
 }
 
