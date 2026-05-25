@@ -88,6 +88,7 @@ void HallReverb::Prepare(const ParamSet& params) {
     // tone: 0=dark (HF RT60 = 30% of LF), 1=bright (HF RT60 = LF, uniform decay)
     fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);
     fdn_.SetModulation(params.mod * 8.0f);
+    // Param1 controls pre-diffusion density (0 = minimal, 1 = maximum)
     diffuser_.SetDiffusion(0.35f + params.param1 * 0.45f);
 }
 
