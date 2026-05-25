@@ -19,13 +19,15 @@ private:
     static constexpr int kMaxStages = 16;
     Lfo           lfo_;
     Lfo           lfo2_;                  // quadrature LFO for Barber Pole (π/2 offset)
-    AllpassFilter stages_[kMaxStages];    // stages[0..3]=chainA, [4..7]=chainB (Barber Pole)
+    AllpassFilter stages_[kMaxStages];    // L chain (all modes) + chainA (Barber Pole)
+    AllpassFilter stages_r_[kMaxStages];  // R chain (normal modes)
     DcBlocker     dc_;
-    DcBlocker     dc2_;  // separate DC blocker for Barber Pole chain B feedback
-    float         center_     = -0.5f;   // allpass center coefficient (from tone)
-    float         depth_mod_  = 0.0f;   // LFO swing scale (from depth)
-    float         feedback_   = 0.0f;   // regen state for chain A / normal
-    float         feedback2_  = 0.0f;   // regen state for chain B (Barber Pole)
+    DcBlocker     dc2_;   // Barber Pole chain B / R chain DC blocker
+    float         center_     = -0.5f;
+    float         depth_mod_  = 0.0f;
+    float         feedback_   = 0.0f;   // L / chainA feedback
+    float         feedback2_  = 0.0f;   // Barber Pole chainB feedback
+    float         feedback_r_ = 0.0f;   // R chain feedback (normal modes)
     int           num_stages_  = 4;      // active stage count (normal modes)
     bool          barber_pole_ = false;  // true when sub-mode 6 is active
 };
