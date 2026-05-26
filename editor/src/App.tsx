@@ -1,51 +1,114 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useState, useCallback } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { StageCard } from "./components/StageCard";
+import { PresetBrowser } from "./components/PresetBrowser";
+import { ExportDialog } from "./components/ExportDialog";
+import { useMidi, PresetData } from "./hooks/useMidi";
+import { useEffect } from "react";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+const DEFAULT_PARAMS = Array(7).fill(0.5) as number[];
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+export default function App() {
+  const midi = useMidi();
+  const [selectedPort, setSelectedPort] = useState("");
+  const [modMode,    setModMode]    = useState(0);
+  const [delayMode,  setDelayMode]  = useState(0);
+  const [reverbMode, setReverbMode] = useState(0);
+  const [modParams,    setModParams]    = useState<number[]>([...DEFAULT_PARAMS]);
+  const [delayParams,  setDelayParams]  = useState<number[]>([...DEFAULT_PARAMS]);
+  const [reverbParams, setReverbParams] = useState<number[]>([...DEFAULT_PARAMS]);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => { midi.refreshPorts(); }, []);
+
+  const handleConnect = async () => {
+    if (!selectedPort) return;
+    await midi.connect(selectedPort);
+  };
+
+  const handleParamChange = useCallback(
+    (stage: "mod" | "delay" | "reverb", index: number, value: number) => {
+      if (stage === "mod")    setModParams(p    => { const n = [...p]; n[index] = value; return n; });
+      if (stage === "delay")  setDelayParams(p  => { const n = [...p]; n[index] = value; return n; });
+      if (stage === "reverb") setReverbParams(p => { const n = [...p]; n[index] = value; return n; });
+      midi.sendCC(stage, index, value);
+    },
+    [midi]
+  );
+
+  const handleModeChange = useCallback(
+    (stage: "mod" | "delay" | "reverb", index: number) => {
+      if (stage === "mod")    setModMode(index);
+      if (stage === "delay")  setDelayMode(index);
+      if (stage === "reverb") setReverbMode(index);
+      const stageIndex = stage === "mod" ? 0 : stage === "delay" ? 1 : 2;
+      midi.setMode(stageIndex, index);
+    },
+    [midi]
+  );
+
+  const handleImportDone = useCallback(
+    (_imported: (PresetData | null)[]) => {
+      // Send all imported presets to device sequentially.
+      _imported.forEach((p) => {
+        if (!p) return;
+        midi.putPreset(p.bank, p.slot, p.name, p.rawData);
+      });
+    },
+    [midi]
+  );
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 flex flex-col gap-4">
+      {/* Connection bar */}
+      <div className="flex items-center gap-2">
+        <Select value={selectedPort} onValueChange={(v) => setSelectedPort(v ?? "")}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select MIDI port" />
+          </SelectTrigger>
+          <SelectContent>
+            {midi.ports.map((p) => (
+              <SelectItem key={p} value={p}>{p}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleConnect} disabled={!selectedPort || midi.connected}>
+          {midi.connected ? "Connected" : "Connect"}
+        </Button>
+        <Button variant="outline" onClick={midi.refreshPorts}>
+          Refresh
+        </Button>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      {/* Stage cards */}
+      <div className="flex gap-4">
+        <StageCard title="Mod"    stage="mod"    stageIndex={0} modeIndex={modMode}    params={modParams}    onParamChange={handleParamChange} onModeChange={handleModeChange} />
+        <StageCard title="Delay"  stage="delay"  stageIndex={1} modeIndex={delayMode}  params={delayParams}  onParamChange={handleParamChange} onModeChange={handleModeChange} />
+        <StageCard title="Reverb" stage="reverb" stageIndex={2} modeIndex={reverbMode} params={reverbParams} onParamChange={handleParamChange} onModeChange={handleModeChange} />
+      </div>
+
+      {/* Preset browser */}
+      <PresetBrowser
+        presets={midi.presets}
+        onSelect={(bank, slot) => midi.setActivePreset(bank, slot)}
+        onSyncAll={midi.getAllPresets}
+        onExport={() => setExportOpen(true)}
+        onImport={() => setExportOpen(true)}
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        presets={midi.presets}
+        onImportDone={handleImportDone}
+      />
+    </div>
   );
 }
-
-export default App;
