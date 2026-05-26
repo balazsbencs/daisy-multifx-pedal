@@ -1,5 +1,6 @@
 #include "fdn.h"
 #include "fast_math.h"
+#include "../config/constants.h"
 #include <cmath>
 #include <cstring>
 
@@ -17,8 +18,9 @@ void Fdn::Init(const Config& cfg) {
     for (int i = 0; i < n_lines_; ++i) {
         lines_[i].Init(cfg.bufs[i], cfg.delays[i]);
         lines_[i].SetDelay(static_cast<float>(cfg.delays[i] - 1));
-        delay_samples_[i] = static_cast<float>(cfg.delays[i] - 1);
-        delay_s_[i]       = static_cast<float>(cfg.delays[i]) / sample_rate_;
+        delay_samples_[i]    = static_cast<float>(cfg.delays[i] - 1);
+        modulated_delay_[i]  = delay_samples_[i];
+        delay_s_[i]          = static_cast<float>(cfg.delays[i]) / sample_rate_;
         lp_state_[i]  = 0.0f;
         lfo_phase_[i] = static_cast<float>(i) / static_cast<float>(n_lines_);
         feedback_[i]  = 0.7f;  // reasonable default
@@ -79,6 +81,20 @@ void Fdn::SetHold(bool hold) {
     hold_ = hold;
 }
 
+void Fdn::PrepareBlock() {
+    const float block_inc = static_cast<float>(BLOCK_SIZE) / sample_rate_;
+    for (int i = 0; i < n_lines_; ++i) {
+        lfo_phase_[i] += kLfoRates[i] * block_inc;
+        if (lfo_phase_[i] >= 1.0f) lfo_phase_[i] -= 1.0f;
+        float d = delay_samples_[i];
+        if (mod_depth_ > 0.0f) {
+            d += mod_depth_ * fast_sin(lfo_phase_[i] * 6.28318530718f);
+            if (d < 1.0f) d = 1.0f;
+        }
+        modulated_delay_[i] = d;
+    }
+}
+
 void Fdn::hadamard4(float v[4]) const {
     const float a = v[0], b = v[1], c = v[2], d = v[3];
     v[0] = (a + b + c + d) * 0.5f;
@@ -102,26 +118,24 @@ void Fdn::hadamard8(float v[8]) const {
 StereoFrame Fdn::Process(float input) {
     float v[MAX_LINES]{};
 
-    // Read from each delay line (with optional LFO modulation).
-    const float lfo_inc = 1.0f / sample_rate_;
+    // Read from each delay line using block-rate modulated tap positions.
     for (int i = 0; i < n_lines_; ++i) {
-        float delay = delay_samples_[i];
-        if (mod_depth_ > 0.0f) {
-            const float lfo = fast_sin(lfo_phase_[i] * 6.28318530718f);
-            delay += mod_depth_ * lfo;
-            if (delay < 1.0f) delay = 1.0f;
-        }
-        v[i] = lines_[i].ReadAt(delay);
-
-        // Advance LFO phase
-        lfo_phase_[i] += kLfoRates[i] * lfo_inc;
-        if (lfo_phase_[i] >= 1.0f) lfo_phase_[i] -= 1.0f;
+        v[i] = lines_[i].ReadNearest(modulated_delay_[i]);
     }
 
     // One-pole LP damping & DC blocking in feedback path.
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
         lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        // NaN/Inf guard: exponent all-ones flags Inf or NaN in IEEE 754 single.
+        {
+            uint32_t bits;
+            std::memcpy(&bits, &lp_state_[i], sizeof(bits));
+            if ((bits & 0x7F800000u) == 0x7F800000u) {
+                lp_state_[i] = 0.0f;
+                dc_[i].Init();
+            }
+        }
     }
 
     // Hadamard mixing.
@@ -154,26 +168,24 @@ StereoFrame Fdn::Process(float input) {
 StereoFrame Fdn::Process(StereoFrame input) {
     float v[MAX_LINES]{};
 
-    // Read from each delay line (with optional LFO modulation).
-    const float lfo_inc = 1.0f / sample_rate_;
+    // Read from each delay line using block-rate modulated tap positions.
     for (int i = 0; i < n_lines_; ++i) {
-        float delay = delay_samples_[i];
-        if (mod_depth_ > 0.0f) {
-            const float lfo = fast_sin(lfo_phase_[i] * 6.28318530718f);
-            delay += mod_depth_ * lfo;
-            if (delay < 1.0f) delay = 1.0f;
-        }
-        v[i] = lines_[i].ReadAt(delay);
-
-        // Advance LFO phase
-        lfo_phase_[i] += kLfoRates[i] * lfo_inc;
-        if (lfo_phase_[i] >= 1.0f) lfo_phase_[i] -= 1.0f;
+        v[i] = lines_[i].ReadNearest(modulated_delay_[i]);
     }
 
     // One-pole LP damping & DC blocking in feedback path.
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
         lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        // NaN/Inf guard: exponent all-ones flags Inf or NaN in IEEE 754 single.
+        {
+            uint32_t bits;
+            std::memcpy(&bits, &lp_state_[i], sizeof(bits));
+            if ((bits & 0x7F800000u) == 0x7F800000u) {
+                lp_state_[i] = 0.0f;
+                dc_[i].Init();
+            }
+        }
     }
 
     // Hadamard mixing.
