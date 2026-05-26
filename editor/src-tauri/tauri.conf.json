@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "editor",
+        "title": "Multi-FX Editor",
         "width": 800,
-        "height": 600
+        "height": 660
       }
     ],
     "security": {

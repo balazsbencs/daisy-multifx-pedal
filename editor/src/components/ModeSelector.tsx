@@ -30,7 +30,7 @@ export function ModeSelector({ stage, modeIndex, onModeChange }: ModeSelectorPro
       onValueChange={(v) => onModeChange(stage, Number(v))}
     >
       <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select mode" />
+        <SelectValue>{modes[modeIndex] ?? "Select mode"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {modes.map((name, i) => (
