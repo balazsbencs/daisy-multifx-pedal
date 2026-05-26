@@ -67,4 +67,21 @@ float DelayLineSdram::ReadAt(float delay_samples) const {
     return ((c3 * t + c2) * t + c1) * t + c0;
 }
 
+float DelayLineSdram::ReadNearest(float delay_samples) const {
+    if (delay_samples < 1.0f) delay_samples = 1.0f;
+    size_t int_part = static_cast<size_t>(delay_samples + 0.5f);
+    if (int_part > size_ - 1) int_part = size_ - 1;
+    return buf_[wrap_idx(write_, int_part, size_)];
+}
+
+float DelayLineSdram::ReadLinear(float delay_samples) const {
+    if (delay_samples < 1.0f) delay_samples = 1.0f;
+    size_t int_part = static_cast<size_t>(delay_samples);
+    const float t   = delay_samples - static_cast<float>(int_part);
+    if (int_part > size_ - 2) int_part = size_ - 2;
+    const float x0  = buf_[wrap_idx(write_, int_part,     size_)];
+    const float x1  = buf_[wrap_idx(write_, int_part + 1, size_)];
+    return x0 + t * (x1 - x0);
+}
+
 } // namespace pedal

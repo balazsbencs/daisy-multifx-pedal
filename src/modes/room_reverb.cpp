@@ -16,13 +16,9 @@ static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[1907];
-static float DSY_SDRAM_BSS buf_fdn1[2239];
-static float DSY_SDRAM_BSS buf_fdn2[2593];
-static float DSY_SDRAM_BSS buf_fdn3[2903];
-static float DSY_SDRAM_BSS buf_fdn4[3307];
-static float DSY_SDRAM_BSS buf_fdn5[3697];
-static float DSY_SDRAM_BSS buf_fdn6[4159];
-static float DSY_SDRAM_BSS buf_fdn7[4799];
+static float DSY_SDRAM_BSS buf_fdn1[2593];
+static float DSY_SDRAM_BSS buf_fdn2[3697];
+static float DSY_SDRAM_BSS buf_fdn3[4799];
 
 // ER tap table: 8 taps, typical small-room reflections
 static constexpr ErTap kErTaps[] = {
@@ -52,17 +48,16 @@ void RoomReverb::Init() {
     diffuser_.Init(diff_bufs, diff_sizes);
     diffuser_.SetDiffusion(0.65f);
 
-    float* fdn_bufs[Fdn::MAX_LINES] = {
-        buf_fdn0, buf_fdn1, buf_fdn2, buf_fdn3,
-        buf_fdn4, buf_fdn5, buf_fdn6, buf_fdn7
-    };
-    const size_t fdn_delays[Fdn::MAX_LINES] = {
-        1907, 2239, 2593, 2903, 3307, 3697, 4159, 4799
-    };
-    Fdn::Config fdn_cfg{8, {}, {}, SAMPLE_RATE};
-    for (int i = 0; i < 8; ++i) {
-        fdn_cfg.bufs[i]   = fdn_bufs[i];
-        fdn_cfg.delays[i] = fdn_delays[i];
+    Fdn::Config fdn_cfg;
+    fdn_cfg.n_lines     = 4;
+    fdn_cfg.sample_rate = SAMPLE_RATE;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 1907;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 2593;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 3697;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 4799;
+    for (int i = 4; i < Fdn::MAX_LINES; ++i) {
+        fdn_cfg.bufs[i]   = nullptr;
+        fdn_cfg.delays[i] = 0;
     }
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(2.0f);
@@ -83,6 +78,7 @@ void RoomReverb::Prepare(const ParamSet& params) {
     fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);
     fdn_.SetModulation(params.mod * 8.0f);
     diffuser_.SetDiffusion(params.param2);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame RoomReverb::Process(float input, const ParamSet& /*params*/) {

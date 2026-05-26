@@ -16,7 +16,9 @@ public:
     void  SetDelay(float delay_samples); // fractional delay; Hermite cubic interpolation
     void  Write(float sample);
     float Read() const;
-    float ReadAt(float delay_samples) const; // read arbitrary tap
+    float ReadAt(float delay_samples) const;      // read arbitrary tap (Hermite, 4 reads)
+    float ReadLinear(float delay_samples) const;  // read arbitrary tap (linear, 2 reads)
+    float ReadNearest(float delay_samples) const; // read arbitrary tap (nearest, 1 read)
 
 private:
     float*  buf_   = nullptr;

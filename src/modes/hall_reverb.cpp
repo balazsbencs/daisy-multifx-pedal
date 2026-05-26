@@ -15,13 +15,9 @@ static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[3307];
-static float DSY_SDRAM_BSS buf_fdn1[3697];
-static float DSY_SDRAM_BSS buf_fdn2[4159];
-static float DSY_SDRAM_BSS buf_fdn3[4799];
-static float DSY_SDRAM_BSS buf_fdn4[5297];
-static float DSY_SDRAM_BSS buf_fdn5[5903];
-static float DSY_SDRAM_BSS buf_fdn6[6397];
-static float DSY_SDRAM_BSS buf_fdn7[6997];
+static float DSY_SDRAM_BSS buf_fdn1[4159];
+static float DSY_SDRAM_BSS buf_fdn2[5903];
+static float DSY_SDRAM_BSS buf_fdn3[6997];
 
 static constexpr ErTap kErTaps[8] = {
     { 480,  0.78f, -0.70f},
@@ -51,24 +47,16 @@ void HallReverb::Init() {
     diffuser_.SetDiffusion(0.65f);
 
     Fdn::Config fdn_cfg;
-    fdn_cfg.n_lines     = 8;
+    fdn_cfg.n_lines     = 4;
     fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]     = buf_fdn0;
-    fdn_cfg.bufs[1]     = buf_fdn1;
-    fdn_cfg.bufs[2]     = buf_fdn2;
-    fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.bufs[4]     = buf_fdn4;
-    fdn_cfg.bufs[5]     = buf_fdn5;
-    fdn_cfg.bufs[6]     = buf_fdn6;
-    fdn_cfg.bufs[7]     = buf_fdn7;
-    fdn_cfg.delays[0]   = 3307;
-    fdn_cfg.delays[1]   = 3697;
-    fdn_cfg.delays[2]   = 4159;
-    fdn_cfg.delays[3]   = 4799;
-    fdn_cfg.delays[4]   = 5297;
-    fdn_cfg.delays[5]   = 5903;
-    fdn_cfg.delays[6]   = 6397;
-    fdn_cfg.delays[7]   = 6997;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 3307;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 4159;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 5903;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 6997;
+    for (int i = 4; i < Fdn::MAX_LINES; ++i) {
+        fdn_cfg.bufs[i]   = nullptr;
+        fdn_cfg.delays[i] = 0;
+    }
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
@@ -90,6 +78,7 @@ void HallReverb::Prepare(const ParamSet& params) {
     fdn_.SetModulation(params.mod * 8.0f);
     // Param1 controls pre-diffusion density (0 = minimal, 1 = maximum)
     diffuser_.SetDiffusion(0.35f + params.param1 * 0.45f);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame HallReverb::Process(float input, const ParamSet& /*params*/) {

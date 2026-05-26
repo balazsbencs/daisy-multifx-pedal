@@ -72,11 +72,15 @@ StereoFrame MagnetoReverb::Process(float input, const ParamSet& params) {
     const float g = 1.0f / (float)n_heads_;
 
     for (int i = 0; i < n_heads_; ++i) {
-        const float tap    = delay_.ReadAt(head_delays_[i]);
-        const float diffed = diffuser_.Process(tap * g);
-        if ((i & 1) == 0) left  += diffed;
-        else               right += diffed;
+        const float tap = delay_.ReadNearest(head_delays_[i]) * g;
+        if ((i & 1) == 0) left  += tap;
+        else               right += tap;
     }
+
+    // Diffuse the mono mix once, then blend with stereo direct taps.
+    const float diffed = diffuser_.Process(0.5f * (left + right));
+    left  = left  * 0.5f + diffed * 0.5f;
+    right = right * 0.5f + diffed * 0.5f;
 
     // Scale L/R symmetrically if heads are unbalanced
     const float l_heads = (float)((n_heads_ + 1) / 2);
