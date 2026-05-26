@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
