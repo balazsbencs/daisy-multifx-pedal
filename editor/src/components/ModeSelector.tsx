@@ -6,9 +6,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const MOD_MODES    = ["Chorus","Flanger","Phaser","Tremolo","Vibrato","Auto-Wah"];
-const DELAY_MODES  = ["Tape","Digital","Ping-Pong","Reverse","Slapback","Dotted-8th","LoFi","Shimmer","Ducking","Multi"];
-const REVERB_MODES = ["Hall","Room","Plate","Spring","Cloud","Shimmer","Magneto","Gated","Freeze","Air","Chapel","Cave"];
+const MOD_MODES    = ["Chorus","Flanger","Rotary","Vibe","Phaser","VintTrem","PatternTrem","AutoSwell","FilterFx","FormantFx","Quadrature","Destroyer"];
+const DELAY_MODES  = ["Digital","Tape","Dual","Filter","Lofi","DBucket","Duck","Pattern","Swell","Trem"];
+const REVERB_MODES = ["Room","Hall","Plate","Spring","Bloom","Cloud","Shimmer","Chorale","Nonlinear","Swell","Magneto","Reflections"];
 
 const MODE_LISTS: Record<string, string[]> = {
   mod: MOD_MODES,

@@ -30,7 +30,11 @@ export default function App() {
 
   const handleConnect = async () => {
     if (!selectedPort) return;
-    await midi.connect(selectedPort);
+    try {
+      await midi.connect(selectedPort);
+    } catch (e) {
+      console.error("MIDI connect failed:", e);
+    }
   };
 
   const handleParamChange = useCallback(
