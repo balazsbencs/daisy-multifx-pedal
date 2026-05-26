@@ -14,20 +14,16 @@ static float DSY_SDRAM_BSS buf_d0_0[Diffuser::kDelays[0] + 1];
 static float DSY_SDRAM_BSS buf_d0_1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_d0_2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_d0_3[Diffuser::kDelays[3] + 1];
-// Diffuser 1 buffers (scaled up)
-static float DSY_SDRAM_BSS buf_d1_0[211];
-static float DSY_SDRAM_BSS buf_d1_1[157];
+// Diffuser 1 buffers
+static float DSY_SDRAM_BSS buf_d1_0[Diffuser::kDelays[0] + 1];
+static float DSY_SDRAM_BSS buf_d1_1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_d1_2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_d1_3[Diffuser::kDelays[3] + 1];
-// FDN 8-line buffers
+// FDN 4-line buffers
 static float DSY_SDRAM_BSS buf_fdn0[4802];
-static float DSY_SDRAM_BSS buf_fdn1[5504];
-static float DSY_SDRAM_BSS buf_fdn2[6152];
-static float DSY_SDRAM_BSS buf_fdn3[7002];
-static float DSY_SDRAM_BSS buf_fdn4[7700];
-static float DSY_SDRAM_BSS buf_fdn5[8504];
-static float DSY_SDRAM_BSS buf_fdn6[9002];
-static float DSY_SDRAM_BSS buf_fdn7[9884];
+static float DSY_SDRAM_BSS buf_fdn1[6152];
+static float DSY_SDRAM_BSS buf_fdn2[7700];
+static float DSY_SDRAM_BSS buf_fdn3[9002];
 
 } // namespace
 
@@ -45,29 +41,21 @@ void CloudReverb::Init() {
     float* d1_bufs[Diffuser::STAGES] = {
         buf_d1_0, buf_d1_1, buf_d1_2, buf_d1_3
     };
-    const size_t d1_sizes[Diffuser::STAGES] = { 211, 157, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
+    const size_t d1_sizes[Diffuser::STAGES] = { Diffuser::kDelays[0] + 1, Diffuser::kDelays[1] + 1, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
     diffuser1_.Init(d1_bufs, d1_sizes);
     diffuser1_.SetDiffusion(0.7f);
 
     Fdn::Config fdn_cfg;
-    fdn_cfg.n_lines     = 8;
+    fdn_cfg.n_lines     = 4;
     fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]     = buf_fdn0;
-    fdn_cfg.bufs[1]     = buf_fdn1;
-    fdn_cfg.bufs[2]     = buf_fdn2;
-    fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.bufs[4]     = buf_fdn4;
-    fdn_cfg.bufs[5]     = buf_fdn5;
-    fdn_cfg.bufs[6]     = buf_fdn6;
-    fdn_cfg.bufs[7]     = buf_fdn7;
-    fdn_cfg.delays[0]   = 4801;
-    fdn_cfg.delays[1]   = 5503;
-    fdn_cfg.delays[2]   = 6151;
-    fdn_cfg.delays[3]   = 7001;
-    fdn_cfg.delays[4]   = 7699;
-    fdn_cfg.delays[5]   = 8503;
-    fdn_cfg.delays[6]   = 9001;
-    fdn_cfg.delays[7]   = 9883;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 4801;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 6151;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 7699;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 9001;
+    for (int i = 4; i < Fdn::MAX_LINES; ++i) {
+        fdn_cfg.bufs[i]   = nullptr;
+        fdn_cfg.delays[i] = 0;
+    }
     fdn_.Init(fdn_cfg);
     fdn_.SetDecay(10.0f);
     fdn_.SetDamping(0.3f);
@@ -97,6 +85,7 @@ void CloudReverb::Prepare(const ParamSet& params) {
     fdn_.SetDamping(damp);
 
     tone_.SetKnob(params.tone);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame CloudReverb::Process(float input, const ParamSet& /*params*/) {

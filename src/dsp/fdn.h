@@ -41,6 +41,10 @@ public:
     // Per-line LFO modulation depth in samples (0 = no modulation).
     void SetModulation(float depth_samples);
 
+    // Advance LFO phases one block and cache modulated tap positions.
+    // Must be called once per block (e.g. at end of Prepare()) before Process().
+    void PrepareBlock();
+
     // Hold: freeze feedback gains at 1.0 (infinite sustain).
     void SetHold(bool hold);
 
@@ -58,6 +62,7 @@ private:
     float          feedback_[MAX_LINES]{};       // nominal feedback gains
     float          lp_state_[MAX_LINES]{};       // one-pole LP state
     float          lfo_phase_[MAX_LINES]{};
+    float          modulated_delay_[MAX_LINES]{};  // cached per-block tap positions
     float          damp_        = 0.3f;
     float          mod_depth_   = 0.0f;
     float          sample_rate_ = 48000.0f;
