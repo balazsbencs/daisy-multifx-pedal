@@ -1,7 +1,13 @@
 import { useCallback } from "react";
 import { KnobHeadless, KnobHeadlessOutput } from "react-knob-headless";
 
-const PARAM_NAMES = ["Speed/Time", "Depth/Repeats", "Mix", "Tone/Filter", "P1/Grit", "P2/ModSpd", "Level/ModDep"];
+const PARAM_NAMES = ["Speed", "Depth", "Mix", "Tone", "Param 1", "Param 2", "Level"];
+
+const ARC_COLOR: Record<string, string> = {
+  mod:    "#22d3ee", // cyan
+  delay:  "#f59e0b", // amber
+  reverb: "#a78bfa", // violet
+};
 
 interface KnobPanelProps {
   stage: "mod" | "delay" | "reverb";
@@ -13,6 +19,8 @@ const roundFn = (v: number) => Math.round(v * 100) / 100;
 const displayFn = (v: number) => (v * 100).toFixed(0);
 
 export function KnobPanel({ stage, values, onParamChange }: KnobPanelProps) {
+  const arcColor = ARC_COLOR[stage];
+
   const handleChange = useCallback(
     (index: number, value: number) => {
       onParamChange(stage, index, value);
@@ -21,13 +29,11 @@ export function KnobPanel({ stage, values, onParamChange }: KnobPanelProps) {
   );
 
   return (
-    <div className="grid grid-cols-4 gap-3 p-2">
+    <div className="grid grid-cols-4 gap-x-2 gap-y-4 p-2">
       {values.slice(0, 7).map((value, i) => {
         const knobId = `knob-${stage}-${i}`;
         const outputId = `output-${stage}-${i}`;
-        // percentage of arc: value in [0,1] → fraction of 275° arc
         const pct = Math.max(0, Math.min(1, value));
-        // SVG arc: circumference of r=16 circle ≈ 100.53; we use 75.4 for ~270° arc
         const arcLen = pct * 75.4;
 
         return (
@@ -41,7 +47,7 @@ export function KnobPanel({ stage, values, onParamChange }: KnobPanelProps) {
               dragSensitivity={0.006}
               valueRawRoundFn={roundFn}
               valueRawDisplayFn={displayFn}
-              className="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-600 cursor-pointer"
+              className="w-11 h-11 rounded-full bg-zinc-800 border border-zinc-600 cursor-pointer"
               onValueRawChange={(v) => handleChange(i, v)}
             >
               <svg viewBox="0 0 40 40" className="w-full h-full pointer-events-none">
@@ -51,7 +57,7 @@ export function KnobPanel({ stage, values, onParamChange }: KnobPanelProps) {
                   cy="20"
                   r="16"
                   fill="none"
-                  stroke="#a1a1aa"
+                  stroke={arcColor}
                   strokeWidth="4"
                   strokeDasharray={`${arcLen} 100`}
                   strokeLinecap="round"
@@ -63,11 +69,11 @@ export function KnobPanel({ stage, values, onParamChange }: KnobPanelProps) {
             <KnobHeadlessOutput
               id={outputId}
               htmlFor={knobId}
-              className="text-xs text-zinc-400 text-center truncate w-14"
+              className="text-xs text-zinc-400 text-center w-full"
             >
               {displayFn(value)}
             </KnobHeadlessOutput>
-            <span className="text-[10px] text-zinc-500 text-center truncate w-14">
+            <span className="text-[10px] text-zinc-500 text-center leading-tight w-full">
               {PARAM_NAMES[i]}
             </span>
           </div>
