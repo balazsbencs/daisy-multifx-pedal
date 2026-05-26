@@ -4,6 +4,11 @@
 * {
   user-select: none;
   -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+::selection {
+  background: transparent;
 }
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
