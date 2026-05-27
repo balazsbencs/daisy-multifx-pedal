@@ -12,13 +12,14 @@ static const int8_t kTransitionTable[16] = {
     0,  1, -1,  0,
 };
 
-void Controls::QuadEncoder::Init(daisy::Pin a, daisy::Pin b) {
+void Controls::QuadEncoder::Init(daisy::Pin a, daisy::Pin b, EncoderType type) {
     a_.Init(a, daisy::GPIO::Mode::INPUT, daisy::GPIO::Pull::PULLUP);
     b_.Init(b, daisy::GPIO::Mode::INPUT, daisy::GPIO::Pull::PULLUP);
     const uint8_t initial = ReadState();
-    raw_prev_ = initial;
-    stable_   = initial;
-    accum_    = 0;
+    raw_prev_  = initial;
+    stable_    = initial;
+    accum_     = 0;
+    threshold_ = static_cast<int8_t>(type);
 }
 
 void Controls::QuadEncoder::IsrPoll(volatile int8_t& out) {
@@ -35,11 +36,10 @@ void Controls::QuadEncoder::IsrPoll(volatile int8_t& out) {
     stable_ = raw;
     accum_ += kTransitionTable[index];
 
-    // Alps EC11: 2 transitions per detent → threshold ±2.
-    if (accum_ >= 2) {
+    if (accum_ >= threshold_) {
         accum_ = 0;
         out += 1;
-    } else if (accum_ <= -2) {
+    } else if (accum_ <= -threshold_) {
         accum_ = 0;
         out -= 1;
     }
@@ -56,14 +56,14 @@ void Controls::EncoderIsrCallback(void* data) {
     }
 }
 
-void Controls::Init(daisy::DaisySeed& hw) {
+void Controls::Init(daisy::DaisySeed& hw, EncoderType type) {
     (void)hw;
 
     encoder_.Init(pins::ENC_A, pins::ENC_B, pins::ENC_SW);
-    param_enc_[0].Init(pins::PARAM_ENC_0_A, pins::PARAM_ENC_0_B);
-    param_enc_[1].Init(pins::PARAM_ENC_1_A, pins::PARAM_ENC_1_B);
-    param_enc_[2].Init(pins::PARAM_ENC_2_A, pins::PARAM_ENC_2_B);
-    param_enc_[3].Init(pins::PARAM_ENC_3_A, pins::PARAM_ENC_3_B);
+    param_enc_[0].Init(pins::PARAM_ENC_0_A, pins::PARAM_ENC_0_B, type);
+    param_enc_[1].Init(pins::PARAM_ENC_1_A, pins::PARAM_ENC_1_B, type);
+    param_enc_[2].Init(pins::PARAM_ENC_2_A, pins::PARAM_ENC_2_B, type);
+    param_enc_[3].Init(pins::PARAM_ENC_3_A, pins::PARAM_ENC_3_B, type);
     sw_fx_[0].Init(pins::SW_FX_MOD);
     sw_fx_[1].Init(pins::SW_FX_DELAY);
     sw_fx_[2].Init(pins::SW_FX_REVERB);
@@ -100,7 +100,16 @@ void Controls::Poll() {
         state_.param_encoder_increment[i] = param_delta[i];
     }
 
-    state_.mode_encoder_increment = encoder_.Increment();
+    mode_enc_accum_ += encoder_.Increment();
+    if (mode_enc_accum_ >= 2) {
+        state_.mode_encoder_increment = 1;
+        mode_enc_accum_ -= 2;
+    } else if (mode_enc_accum_ <= -2) {
+        state_.mode_encoder_increment = -1;
+        mode_enc_accum_ += 2;
+    } else {
+        state_.mode_encoder_increment = 0;
+    }
     state_.mode_encoder_pressed   = encoder_.FallingEdge();
     state_.mode_encoder_held      = encoder_.Pressed();
     for (int i = 0; i < 3; ++i) state_.fx_pressed[i] = sw_fx_[i].RisingEdge();

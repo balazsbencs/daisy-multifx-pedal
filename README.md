@@ -106,7 +106,9 @@ dfu-util -a 0 -s 0x90040000:leave -D build/multi-fx.bin -d ,0483:df11
 - **Controls:** 4 quadrature encoders polled at 500 Hz from a TIM3 ISR
   (shift-register debounce, accumulator-per-detent).  The 5th encoder
   (mode) and the 4 footswitches use `daisy::Switch` debounce in the
-  main loop.
+  main loop.  Supported encoder types: Alps EC11 (2 transitions/detent)
+  and Bourns PEC11R (4 transitions/detent) — see
+  [Encoder hardware](#encoder-hardware) below.
 - **Display:** ST7789 driven over SPI1 with DMA.  Frame buffer lives in
   SDRAM (240 × 320 × 16 bpp).  Updated at ~30 fps.
 - **Concurrency:** main loop publishes `MultiParamBuf` via double-buffer
@@ -114,6 +116,30 @@ dfu-util -a 0 -s 0x90040000:leave -D build/multi-fx.bin -d ,0483:df11
   reads the most recently published buffer.
 - **Memory:** No heap allocation anywhere.  Long delay lines live in
   SDRAM; mod-FX delay lines fit in DTCMRAM.
+
+---
+
+## Encoder hardware
+
+The four parameter encoders are driven by a type-aware quadrature decoder that
+normalises the different pulse-per-detent counts of common encoder families.
+Pass the matching `EncoderType` to `Controls::Init` in `src/main.cpp`:
+
+| Encoder family  | Transitions / detent | `EncoderType` constant          |
+|-----------------|---------------------|---------------------------------|
+| Alps EC11       | 2                   | `Controls::EncoderType::ALPS_EC11` (default) |
+| Bourns PEC11R   | 4                   | `Controls::EncoderType::BOURNS_PEC11R`        |
+
+```cpp
+// src/main.cpp — inside AppInit()
+controls.Init(hw);                                               // Alps EC11 (default)
+controls.Init(hw, pedal::Controls::EncoderType::BOURNS_PEC11R); // Bourns PEC11R
+```
+
+The `EncoderType` integer value is the threshold used by the half-step
+accumulator: the decoder fires one step when it accumulates that many
+quadrature transitions in one direction.  Adding support for a new encoder
+family only requires adding a new enum value with the correct transition count.
 
 ---
 

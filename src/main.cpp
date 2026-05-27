@@ -322,7 +322,7 @@ int main() {
 
         // ── Mode selection within active page (mode encoder rotation) ─────────
         const int mode_delta = ctrl.mode_encoder_increment;
-        if (mode_delta) {
+        if (mode_delta && !ctrl.mode_encoder_held) {
             const int dir = (mode_delta > 0) ? 1 : -1;
             switch (active_page) {
                 case 0: {
