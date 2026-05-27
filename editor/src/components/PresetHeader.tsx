@@ -18,6 +18,7 @@ interface PresetHeaderProps {
   isDirty: boolean;
   isSaving: boolean;
   saveError: string | null;
+  midiError: string | null;
   onNameChange: (name: string) => void;
   onSave: () => void;
   onSyncAll: () => void;
@@ -27,7 +28,7 @@ interface PresetHeaderProps {
 
 export function PresetHeader({
   connected, ports, onConnect, onRefresh,
-  activePreset, presetName, isDirty, isSaving, saveError,
+  activePreset, presetName, isDirty, isSaving, saveError, midiError,
   onNameChange, onSave, onSyncAll, onExport, onImport,
 }: PresetHeaderProps) {
   const [selectedPort, setSelectedPort] = useState("");
@@ -136,6 +137,11 @@ export function PresetHeader({
         )}
         {saveError && (
           <span className="text-red-400 text-xs flex-shrink-0">{saveError}</span>
+        )}
+        {midiError && (
+          <span className="text-orange-400 text-xs flex-shrink-0 max-w-[12rem] truncate" title={midiError}>
+            ⚠ {midiError}
+          </span>
         )}
       </div>
 

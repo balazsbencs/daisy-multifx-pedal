@@ -117,6 +117,14 @@ void MidiHandlerPedal::HandleSysEx(const uint8_t* data, size_t len,
             SendAck(cmd, true);
             break;
         }
+        case 0x08u: { // SET_FX_ENABLED
+            if (len < 4u) { SendAck(cmd, false); return; }
+            out.fx_enable_change = true;
+            out.fx_enable_stage  = static_cast<int>(data[2]);
+            out.fx_enable_val    = data[3] != 0u;
+            SendAck(cmd, true);
+            break;
+        }
         default:
             SendAck(cmd, false);
             break;

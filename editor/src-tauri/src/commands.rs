@@ -64,3 +64,8 @@ pub fn set_active_preset(bank: u8, slot: u8, state: State<SharedMidi>) -> Result
 pub fn set_mode(stage: u8, mode_index: u8, state: State<SharedMidi>) -> Result<(), String> {
     midi::send_raw(&state, &sysex::build_set_mode(stage, mode_index))
 }
+
+#[tauri::command]
+pub fn set_fx_enabled(stage: u8, enabled: bool, state: State<SharedMidi>) -> Result<(), String> {
+    midi::send_raw(&state, &sysex::build_set_fx_enabled(stage, enabled))
+}
