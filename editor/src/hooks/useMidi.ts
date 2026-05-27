@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { parsePresetSlot, ParsedPreset } from "../lib/presetCodec";
 
-// CC base values matching firmware constants.h
 const CC_MOD_BASE    = 14;
 const CC_DELAY_BASE  = 21;
 const CC_REVERB_BASE = 28;
@@ -14,13 +14,41 @@ export interface PresetData {
   rawData: Uint8Array; // 92 bytes
 }
 
+export interface LoadedPresetResult {
+  modMode: number;
+  delayMode: number;
+  reverbMode: number;
+  modParams: number[];
+  delayParams: number[];
+  reverbParams: number[];
+  fxEnabled: [number, number, number];
+  name: string;
+}
+
+interface LoadPending {
+  resolve: (result: LoadedPresetResult | null) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface SavePending {
+  resolve: (ok: boolean) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 export function useMidi() {
   const [ports, setPorts] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [presets, setPresets] = useState<(PresetData | null)[]>(
     Array(100).fill(null)
   );
-  const ccThrottle = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const ccThrottle  = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const presetsRef  = useRef<(PresetData | null)[]>(Array(100).fill(null));
+  const loadPending = useRef<Map<string, LoadPending>>(new Map());
+  const savePending = useRef<SavePending | null>(null);
+
+  // Keep presetsRef in sync so async callbacks see current data.
+  useEffect(() => { presetsRef.current = presets; }, [presets]);
 
   const refreshPorts = useCallback(async () => {
     const p = await invoke<string[]>("list_midi_ports");
@@ -32,16 +60,14 @@ export function useMidi() {
     setConnected(true);
   }, []);
 
-  // Send CC with 10ms throttle per knob.
   const sendCC = useCallback(
     (stage: "mod" | "delay" | "reverb", paramIndex: number, normalised: number) => {
       const base =
-        stage === "mod" ? CC_MOD_BASE :
+        stage === "mod"   ? CC_MOD_BASE :
         stage === "delay" ? CC_DELAY_BASE : CC_REVERB_BASE;
       const cc    = base + paramIndex;
       const value = Math.round(normalised * 127);
       const key   = `${cc}`;
-
       if (ccThrottle.current.has(key)) clearTimeout(ccThrottle.current.get(key)!);
       ccThrottle.current.set(
         key,
@@ -54,10 +80,6 @@ export function useMidi() {
     []
   );
 
-  const setActivePreset = useCallback((bank: number, slot: number) => {
-    invoke("set_active_preset", { bank, slot }).catch(console.error);
-  }, []);
-
   const setMode = useCallback((stage: number, modeIndex: number) => {
     invoke("set_mode", { stage, modeIndex }).catch(console.error);
   }, []);
@@ -66,14 +88,61 @@ export function useMidi() {
     invoke("get_all_presets").catch(console.error);
   }, []);
 
+  // Fire-and-forget — used by the import flow.
   const putPreset = useCallback(
     (bank: number, slot: number, name: string, rawData: Uint8Array) => {
       invoke("put_preset", {
-        bank,
-        slot,
-        name,
-        rawData: Array.from(rawData),
+        bank, slot, name, rawData: Array.from(rawData),
       }).catch(console.error);
+    },
+    []
+  );
+
+  // Promise-based save; resolves true on success ACK, false on error/timeout.
+  const savePreset = useCallback(
+    (bank: number, slot: number, name: string, rawData: Uint8Array): Promise<boolean> => {
+      if (savePending.current) {
+        clearTimeout(savePending.current.timer);
+        savePending.current.resolve(false);
+        savePending.current = null;
+      }
+      return new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => {
+          savePending.current = null;
+          resolve(false);
+        }, 2000);
+        savePending.current = { resolve, timer };
+        invoke("put_preset", {
+          bank, slot, name, rawData: Array.from(rawData),
+        }).catch(() => {
+          clearTimeout(timer);
+          savePending.current = null;
+          resolve(false);
+        });
+      });
+    },
+    []
+  );
+
+  // Sends SET_ACTIVE to device and resolves with parsed preset params + name.
+  // For cached slots resolves immediately; for uncached slots fetches first (2 s timeout).
+  const loadPreset = useCallback(
+    (bank: number, slot: number): Promise<LoadedPresetResult | null> => {
+      invoke("set_active_preset", { bank, slot }).catch(console.error);
+      const idx    = bank * 10 + slot;
+      const cached = presetsRef.current[idx];
+      if (cached) {
+        return Promise.resolve(toResult(parsePresetSlot(cached.rawData), cached.name));
+      }
+      invoke("get_preset", { bank, slot }).catch(console.error);
+      return new Promise<LoadedPresetResult | null>((resolve) => {
+        const key   = `${bank}-${slot}`;
+        const timer = setTimeout(() => {
+          loadPending.current.delete(key);
+          resolve(null);
+        }, 2000);
+        loadPending.current.set(key, { resolve, timer });
+      });
     },
     []
   );
@@ -82,22 +151,42 @@ export function useMidi() {
   useEffect(() => {
     const unlisten = listen<number[]>("midi-sysex", (event) => {
       const msg = new Uint8Array(event.payload);
-      // PRESET_DATA response: F0 7D 81 bank slot name[12] encoded[106] F7
-      if (msg.length >= 5 && msg[0] === 0xf0 && msg[1] === 0x7d && msg[2] === 0x81) {
-        const bank = msg[3];
-        const slot = msg[4];
+      if (msg.length < 3 || msg[0] !== 0xF0 || msg[1] !== 0x7D) return;
+      const cmd = msg[2];
+
+      if (cmd === 0x81) {
+        // PRESET_DATA: F0 7D 81 bank slot name[12] encoded[106] F7
+        if (msg.length < 5) return;
+        const bank      = msg[3];
+        const slot      = msg[4];
         const nameBytes = msg.slice(5, 17);
-        const name = new TextDecoder()
-          .decode(nameBytes)
-          .replace(/\0+$/, "");
-        const encoded = msg.slice(17, msg.length - 1);
-        const rawData = decode7bit(encoded);
-        const idx = bank * 10 + slot;
+        const name      = new TextDecoder().decode(nameBytes).replace(/\0+$/, "");
+        const encoded   = msg.slice(17, msg.length - 1);
+        const rawData   = decode7bit(encoded);
+        const idx       = bank * 10 + slot;
         setPresets((prev) => {
           const next = [...prev];
-          next[idx] = { bank, slot, name, rawData };
+          next[idx]  = { bank, slot, name, rawData };
           return next;
         });
+        const key     = `${bank}-${slot}`;
+        const pending = loadPending.current.get(key);
+        if (pending) {
+          clearTimeout(pending.timer);
+          loadPending.current.delete(key);
+          pending.resolve(toResult(parsePresetSlot(rawData), name));
+        }
+      } else if (cmd === 0x83) {
+        // ACK: F0 7D 83 originalCmd ok bank slot F7
+        if (msg.length < 6) return;
+        const originalCmd = msg[3];
+        const ok          = msg[4] === 0x00;
+        if (originalCmd === 0x02 && savePending.current) {
+          clearTimeout(savePending.current.timer);
+          const { resolve } = savePending.current;
+          savePending.current = null;
+          resolve(ok);
+        }
       }
     });
     return () => { unlisten.then((fn) => fn()); };
@@ -110,14 +199,18 @@ export function useMidi() {
     refreshPorts,
     connect,
     sendCC,
-    setActivePreset,
     setMode,
     getAllPresets,
     putPreset,
+    savePreset,
+    loadPreset,
   };
 }
 
-// Mirror of the Rust decode_7bit (runs in the browser for incoming SysEx).
+function toResult(parsed: ParsedPreset, name: string): LoadedPresetResult {
+  return { ...parsed, name };
+}
+
 function decode7bit(input: Uint8Array): Uint8Array {
   const out: number[] = [];
   let i = 0;
@@ -125,7 +218,7 @@ function decode7bit(input: Uint8Array): Uint8Array {
     const remaining = input.length - i;
     if (remaining < 2) break;
     const chunkLen = Math.min(remaining - 1, 7);
-    const msb = input[i++];
+    const msb      = input[i++];
     for (let j = 0; j < chunkLen; j++) {
       out.push(input[i++] | (((msb >> j) & 1) << 7));
     }
