@@ -12,4 +12,8 @@ build/
 website/node_modules/
 website/dist/
 website/.astro/
+editor/node_modules/
+editor/dist/
+editor/src-tauri/gen/
+editor/src-tauri/target/
 .superpowers/
