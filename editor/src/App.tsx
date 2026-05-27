@@ -6,7 +6,8 @@ import { ExportDialog }  from "./components/ExportDialog";
 import { useMidi, PresetData, LoadedPresetResult } from "./hooks/useMidi";
 import { buildRawData }  from "./lib/presetCodec";
 
-const DEFAULT_PARAMS = Array(7).fill(0.5) as number[];
+const DEFAULT_PARAMS  = Array(7).fill(0.5) as number[];
+const DEFAULT_FX: [boolean, boolean, boolean] = [true, false, false];
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 type LoadedSnapshot = LoadedPresetResult;
@@ -24,6 +25,7 @@ export default function App() {
   const [modParams,    setModParams]    = useState<number[]>([...DEFAULT_PARAMS]);
   const [delayParams,  setDelayParams]  = useState<number[]>([...DEFAULT_PARAMS]);
   const [reverbParams, setReverbParams] = useState<number[]>([...DEFAULT_PARAMS]);
+  const [fxEnabled,    setFxEnabled]    = useState<[boolean, boolean, boolean]>([...DEFAULT_FX]);
 
   const [activePreset,   setActivePreset]   = useState<{ bank: number; slot: number } | null>(null);
   const [loadedSnapshot, setLoadedSnapshot] = useState<LoadedSnapshot | null>(null);
@@ -43,7 +45,8 @@ export default function App() {
       reverbMode !== loadedSnapshot.reverbMode ||
       !paramsEqual(modParams,    loadedSnapshot.modParams)    ||
       !paramsEqual(delayParams,  loadedSnapshot.delayParams)  ||
-      !paramsEqual(reverbParams, loadedSnapshot.reverbParams));
+      !paramsEqual(reverbParams, loadedSnapshot.reverbParams) ||
+      fxEnabled.some((v, i) => v !== (loadedSnapshot.fxEnabled[i] !== 0)));
 
   const handleConnect = useCallback(async (portName: string) => {
     try { await midi.connect(portName); }
@@ -71,6 +74,19 @@ export default function App() {
     [midi]
   );
 
+  const handleFxToggle = useCallback(
+    (stage: "mod" | "delay" | "reverb") => {
+      const stageIndex = stage === "mod" ? 0 : stage === "delay" ? 1 : 2;
+      setFxEnabled(prev => {
+        const next: [boolean, boolean, boolean] = [...prev] as [boolean, boolean, boolean];
+        next[stageIndex] = !prev[stageIndex];
+        midi.setFxEnabled(stageIndex, next[stageIndex]);
+        return next;
+      });
+    },
+    [midi]
+  );
+
   const handlePresetSelect = useCallback(
     async (bank: number, slot: number) => {
       const result = await midi.loadPreset(bank, slot);
@@ -81,6 +97,7 @@ export default function App() {
       setModParams([...result.modParams]);
       setDelayParams([...result.delayParams]);
       setReverbParams([...result.reverbParams]);
+      setFxEnabled(result.fxEnabled.map(v => v !== 0) as [boolean, boolean, boolean]);
       setPresetName(result.name);
       setActivePreset({ bank, slot });
       setLoadedSnapshot({ ...result });
@@ -93,6 +110,7 @@ export default function App() {
     if (!activePreset || !loadedSnapshot) return;
     setIsSaving(true);
     setSaveError(null);
+    const fxRaw = fxEnabled.map(v => v ? 1 : 0) as [number, number, number];
     const rawData = buildRawData({
       modMode,
       delayMode,
@@ -100,7 +118,7 @@ export default function App() {
       modParams,
       delayParams,
       reverbParams,
-      fxEnabled: loadedSnapshot.fxEnabled,
+      fxEnabled: fxRaw,
     });
     const ok = await midi.savePreset(
       activePreset.bank, activePreset.slot, presetName, rawData
@@ -112,14 +130,14 @@ export default function App() {
         modParams:    [...modParams],
         delayParams:  [...delayParams],
         reverbParams: [...reverbParams],
-        fxEnabled:    loadedSnapshot.fxEnabled,
+        fxEnabled:    fxRaw,
         name:         presetName,
       });
     } else {
       setSaveError("Save failed");
     }
   }, [activePreset, loadedSnapshot, modMode, delayMode, reverbMode,
-      modParams, delayParams, reverbParams, presetName, midi]);
+      modParams, delayParams, reverbParams, fxEnabled, presetName, midi]);
 
   const handleImportDone = useCallback(
     (imported: (PresetData | null)[]) => {
@@ -143,6 +161,7 @@ export default function App() {
         isDirty={isDirty}
         isSaving={isSaving}
         saveError={saveError}
+        midiError={midi.midiError}
         onNameChange={setPresetName}
         onSave={handleSave}
         onSyncAll={midi.getAllPresets}
@@ -151,9 +170,9 @@ export default function App() {
       />
 
       <div className="flex gap-4">
-        <StageCard title="Mod"    stage="mod"    stageIndex={0} modeIndex={modMode}    params={modParams}    onParamChange={handleParamChange} onModeChange={handleModeChange} />
-        <StageCard title="Delay"  stage="delay"  stageIndex={1} modeIndex={delayMode}  params={delayParams}  onParamChange={handleParamChange} onModeChange={handleModeChange} />
-        <StageCard title="Reverb" stage="reverb" stageIndex={2} modeIndex={reverbMode} params={reverbParams} onParamChange={handleParamChange} onModeChange={handleModeChange} />
+        <StageCard title="Mod"    stage="mod"    stageIndex={0} modeIndex={modMode}    params={modParams}    fxEnabled={fxEnabled[0]} onParamChange={handleParamChange} onModeChange={handleModeChange} onFxToggle={handleFxToggle} />
+        <StageCard title="Delay"  stage="delay"  stageIndex={1} modeIndex={delayMode}  params={delayParams}  fxEnabled={fxEnabled[1]} onParamChange={handleParamChange} onModeChange={handleModeChange} onFxToggle={handleFxToggle} />
+        <StageCard title="Reverb" stage="reverb" stageIndex={2} modeIndex={reverbMode} params={reverbParams} fxEnabled={fxEnabled[2]} onParamChange={handleParamChange} onModeChange={handleModeChange} onFxToggle={handleFxToggle} />
       </div>
 
       <PresetBrowser

@@ -437,6 +437,15 @@ int main() {
             live_state_dirty = true;
             last_change_ms   = now;
         }
+        if (midi.fx_enable_change) {
+            const int stage = midi.fx_enable_stage;
+            if (stage >= 0 && stage < 3) {
+                fx_enabled[stage] = midi.fx_enable_val;
+                led_fx[stage].Write(fx_enabled[stage]);
+            }
+            live_state_dirty = true;
+            last_change_ms   = now;
+        }
 
         // ── Tempo sync ─────────────────────────────────────────────────────────
         tempo_sync.Process(now);

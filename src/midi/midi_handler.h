@@ -25,6 +25,10 @@ struct MultiMidiState {
     bool mode_change = false; // SET_MODE received
     int  mode_stage  = 0;     // 0=mod 1=delay 2=reverb
     int  mode_index  = 0;
+
+    bool fx_enable_change = false; // SET_FX_ENABLED received
+    int  fx_enable_stage  = 0;
+    bool fx_enable_val    = false;
 };
 
 class MidiHandlerPedal {

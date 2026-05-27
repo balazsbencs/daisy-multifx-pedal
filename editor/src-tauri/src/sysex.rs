@@ -59,6 +59,10 @@ pub fn build_set_mode(stage: u8, mode_index: u8) -> Vec<u8> {
     vec![0xF0, 0x7D, 0x07, stage, mode_index, 0xF7]
 }
 
+pub fn build_set_fx_enabled(stage: u8, enabled: bool) -> Vec<u8> {
+    vec![0xF0, 0x7D, 0x08, stage, if enabled { 0x01 } else { 0x00 }, 0xF7]
+}
+
 pub fn build_cc(channel: u8, cc: u8, value: u8) -> Vec<u8> {
     vec![0xB0 | (channel & 0x0F), cc, value & 0x7F]
 }

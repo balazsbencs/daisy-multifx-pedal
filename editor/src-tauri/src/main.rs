@@ -21,6 +21,7 @@ fn main() {
             commands::get_all_presets,
             commands::set_active_preset,
             commands::set_mode,
+            commands::set_fx_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

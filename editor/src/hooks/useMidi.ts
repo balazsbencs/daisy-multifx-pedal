@@ -41,14 +41,21 @@ export function useMidi() {
   const [presets, setPresets] = useState<(PresetData | null)[]>(
     Array(100).fill(null)
   );
+  const [midiError, setMidiError] = useState<string | null>(null);
 
-  const ccThrottle  = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const presetsRef  = useRef<(PresetData | null)[]>(Array(100).fill(null));
-  const loadPending = useRef<Map<string, LoadPending>>(new Map());
-  const savePending = useRef<SavePending | null>(null);
+  const ccThrottle    = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const errorTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presetsRef    = useRef<(PresetData | null)[]>(Array(100).fill(null));
+  const loadPending   = useRef<Map<string, LoadPending>>(new Map());
+  const savePending   = useRef<SavePending | null>(null);
 
-  // Keep presetsRef in sync so async callbacks see current data.
   useEffect(() => { presetsRef.current = presets; }, [presets]);
+
+  const reportError = useCallback((msg: string) => {
+    setMidiError(msg);
+    if (errorTimer.current) clearTimeout(errorTimer.current);
+    errorTimer.current = setTimeout(() => setMidiError(null), 4000);
+  }, []);
 
   const refreshPorts = useCallback(async () => {
     const p = await invoke<string[]>("list_midi_ports");
@@ -72,33 +79,45 @@ export function useMidi() {
       ccThrottle.current.set(
         key,
         setTimeout(() => {
-          invoke("send_cc", { channel: 0, cc, value }).catch(console.error);
+          invoke("send_cc", { channel: 0, cc, value }).catch((e) => {
+            reportError(`CC send failed: ${e}`);
+          });
           ccThrottle.current.delete(key);
         }, 10)
       );
     },
-    []
+    [reportError]
   );
 
   const setMode = useCallback((stage: number, modeIndex: number) => {
-    invoke("set_mode", { stage, modeIndex }).catch(console.error);
-  }, []);
+    invoke("set_mode", { stage, modeIndex }).catch((e) => {
+      reportError(`Mode change failed: ${e}`);
+    });
+  }, [reportError]);
+
+  const setFxEnabled = useCallback((stage: number, enabled: boolean) => {
+    invoke("set_fx_enabled", { stage, enabled }).catch((e) => {
+      reportError(`FX toggle failed: ${e}`);
+    });
+  }, [reportError]);
 
   const getAllPresets = useCallback(() => {
-    invoke("get_all_presets").catch(console.error);
-  }, []);
+    invoke("get_all_presets").catch((e) => {
+      reportError(`Sync failed: ${e}`);
+    });
+  }, [reportError]);
 
-  // Fire-and-forget — used by the import flow.
   const putPreset = useCallback(
     (bank: number, slot: number, name: string, rawData: Uint8Array) => {
       invoke("put_preset", {
         bank, slot, name, rawData: Array.from(rawData),
-      }).catch(console.error);
+      }).catch((e) => {
+        reportError(`Put preset failed: ${e}`);
+      });
     },
-    []
+    [reportError]
   );
 
-  // Promise-based save; resolves true on success ACK, false on error/timeout.
   const savePreset = useCallback(
     (bank: number, slot: number, name: string, rawData: Uint8Array): Promise<boolean> => {
       if (savePending.current) {
@@ -124,17 +143,19 @@ export function useMidi() {
     []
   );
 
-  // Sends SET_ACTIVE to device and resolves with parsed preset params + name.
-  // For cached slots resolves immediately; for uncached slots fetches first (2 s timeout).
   const loadPreset = useCallback(
     (bank: number, slot: number): Promise<LoadedPresetResult | null> => {
-      invoke("set_active_preset", { bank, slot }).catch(console.error);
+      invoke("set_active_preset", { bank, slot }).catch((e) => {
+        reportError(`Set active failed: ${e}`);
+      });
       const idx    = bank * 10 + slot;
       const cached = presetsRef.current[idx];
       if (cached) {
         return Promise.resolve(toResult(parsePresetSlot(cached.rawData), cached.name));
       }
-      invoke("get_preset", { bank, slot }).catch(console.error);
+      invoke("get_preset", { bank, slot }).catch((e) => {
+        reportError(`Get preset failed: ${e}`);
+      });
       return new Promise<LoadedPresetResult | null>((resolve) => {
         const key   = `${bank}-${slot}`;
         const timer = setTimeout(() => {
@@ -144,10 +165,9 @@ export function useMidi() {
         loadPending.current.set(key, { resolve, timer });
       });
     },
-    []
+    [reportError]
   );
 
-  // Listen for incoming SysEx from the device.
   useEffect(() => {
     const unlisten = listen<number[]>("midi-sysex", (event) => {
       const msg = new Uint8Array(event.payload);
@@ -155,7 +175,6 @@ export function useMidi() {
       const cmd = msg[2];
 
       if (cmd === 0x81) {
-        // PRESET_DATA: F0 7D 81 bank slot name[12] encoded[106] F7
         if (msg.length < 5) return;
         const bank      = msg[3];
         const slot      = msg[4];
@@ -177,7 +196,6 @@ export function useMidi() {
           pending.resolve(toResult(parsePresetSlot(rawData), name));
         }
       } else if (cmd === 0x83) {
-        // ACK: F0 7D 83 originalCmd ok bank slot F7
         if (msg.length < 6) return;
         const originalCmd = msg[3];
         const ok          = msg[4] === 0x00;
@@ -196,10 +214,12 @@ export function useMidi() {
     ports,
     connected,
     presets,
+    midiError,
     refreshPorts,
     connect,
     sendCC,
     setMode,
+    setFxEnabled,
     getAllPresets,
     putPreset,
     savePreset,
