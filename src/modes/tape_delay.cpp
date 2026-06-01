@@ -58,7 +58,7 @@ void TapeDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
-    static constexpr float kDelaySlew = 0.001f;
+    static constexpr float kDelaySlew = 0.0001f;  // ~0.2s glide for tape varispeed warp
 
     const float lfo_val = lfo_out_;
     const float flutter = params.mod_dep * 50.0f;

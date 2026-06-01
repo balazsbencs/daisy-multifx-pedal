@@ -36,7 +36,7 @@ void DbucketDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame DbucketDelay::Process(float input, const ParamSet& params) {
-    static constexpr float kDelaySlew = 0.001f;
+    static constexpr float kDelaySlew = 0.0001f;  // BBD clock change glides pitch
 
     const float base_samps = params.time * SAMPLE_RATE;
     delay_smooth_ += kDelaySlew * (base_samps - delay_smooth_);
