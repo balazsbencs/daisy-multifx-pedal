@@ -120,7 +120,7 @@ StereoFrame Fdn::Process(float input) {
 
     // Read from each delay line using block-rate modulated tap positions.
     for (int i = 0; i < n_lines_; ++i) {
-        v[i] = lines_[i].ReadNearest(modulated_delay_[i]);
+        v[i] = lines_[i].ReadLinear(modulated_delay_[i]);
     }
 
     // One-pole LP damping & DC blocking in feedback path.
@@ -170,7 +170,7 @@ StereoFrame Fdn::Process(StereoFrame input) {
 
     // Read from each delay line using block-rate modulated tap positions.
     for (int i = 0; i < n_lines_; ++i) {
-        v[i] = lines_[i].ReadNearest(modulated_delay_[i]);
+        v[i] = lines_[i].ReadLinear(modulated_delay_[i]);
     }
 
     // One-pole LP damping & DC blocking in feedback path.
