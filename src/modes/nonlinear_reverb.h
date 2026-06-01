@@ -19,7 +19,7 @@ private:
     DelayLineSdram pre_delay_;
     Diffuser       diffuser_;
     Fdn            fdn_;
-    ToneFilter     tone_;
+    ToneFilter     tone_[2];
     float          shape_phase_ = 0.0f;
     float          decay_rate_  = 0.0f;
 };

@@ -23,7 +23,7 @@ private:
     Diffuser       diffuser_;
     Fdn            fdn_;
     PitchShifter   pitch_shifter_[2];
-    ToneFilter     tone_;
+    ToneFilter     tone_[2];
     bool           hold_            = false;
     float          pitch_fb_l_      = 0.0f;  // one-sample-delayed shimmer feedback left
     float          pitch_fb_r_      = 0.0f;  // one-sample-delayed shimmer feedback right

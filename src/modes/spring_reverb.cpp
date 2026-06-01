@@ -81,7 +81,8 @@ void SpringReverb::Init() {
     comb_[2].SetDelay(4520);
 
     sat_.Init();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     hold_ = false;
     for (auto& fb : comb_fb_) fb = 0.8f;
 
@@ -107,7 +108,8 @@ void SpringReverb::Reset() {
     comb_[0].SetDelay(4000);
     comb_[1].SetDelay(4280);
     comb_[2].SetDelay(4520);
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     hold_ = false;
     spring_lfo_[0].Reset();
     spring_lfo_[1].Reset();
@@ -139,7 +141,8 @@ void SpringReverb::Prepare(const ParamSet& params) {
     const float desired_drive = std::exp(params.param1 * 3.0f * 0.693147f); // 2^(3*p1)
     sat_.SetDrive(sqrtf((desired_drive - 1.0f) * (1.0f / 15.0f)));
 
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     mod_depth_ = params.mod * 4.0f;  // 0 = no modulation, 1 = ±4 samples wobble
 }
@@ -179,8 +182,8 @@ StereoFrame SpringReverb::Process(float input, const ParamSet& params) {
 
     const float scale = 1.0f / static_cast<float>(n_springs);
     return StereoFrame{
-        tone_.Process(out_l * scale),
-        tone_.Process(out_r * scale)
+        tone_[0].Process(out_l * scale),
+        tone_[1].Process(out_r * scale)
     };
 }
 

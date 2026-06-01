@@ -22,7 +22,7 @@ private:
     Diffuser       diffuser0_;
     Diffuser       diffuser1_;
     Fdn            fdn_;
-    ToneFilter     tone_;
+    ToneFilter     tone_[2];
 };
 
 } // namespace pedal

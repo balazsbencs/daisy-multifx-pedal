@@ -20,7 +20,7 @@ public:
 private:
     DelayLineSdram   pre_delay_;
     Fdn              fdn_;
-    ToneFilter       tone_;
+    ToneFilter       tone_[2];
     EnvelopeFollower env_follow_;
     float            ramp_gain_  = 0.0f;
     float            ramp_rate_  = 0.0f;

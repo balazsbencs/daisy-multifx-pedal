@@ -76,7 +76,8 @@ void NonlinearReverb::Init() {
     fdn_.SetDecay(1.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     shape_phase_ = 0.0f;
     decay_rate_  = 1.0f / SAMPLE_RATE;
 }
@@ -85,7 +86,8 @@ void NonlinearReverb::Reset() {
     pre_delay_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     shape_phase_ = 0.0f;
 }
 
@@ -94,7 +96,8 @@ void NonlinearReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     diffuser_.SetDiffusion(0.4f + params.param2 * 0.4f);
 
@@ -125,8 +128,8 @@ StereoFrame NonlinearReverb::Process(float input, const ParamSet& params) {
     if (shape_phase_ > 1.0f) shape_phase_ = 0.0f;
 
     const StereoFrame out{
-        tone_.Process(late.left  * sg),
-        tone_.Process(late.right * sg)
+        tone_[0].Process(late.left  * sg),
+        tone_[1].Process(late.right * sg)
     };
     return out;
 }

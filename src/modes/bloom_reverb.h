@@ -21,7 +21,7 @@ private:
     DelayLineSdram pre_delay_;
     Diffuser       diffuser_;
     Fdn            fdn_;
-    ToneFilter     tone_;
+    ToneFilter     tone_[2];
     float          bloom_env_         = 0.0f;
     float          bloom_rate_        = 0.0001f;
     float          bloom_feedback_    = 0.0f;   // param2-derived amount

@@ -39,7 +39,8 @@ void SwellReverb::Init() {
     fdn_.SetDecay(2.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     env_follow_.Init(5.0f, 100.0f);
 
     ramp_gain_ = 0.0f;
@@ -49,7 +50,8 @@ void SwellReverb::Init() {
 void SwellReverb::Reset() {
     pre_delay_.Reset();
     fdn_.Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     ramp_gain_ = 0.0f;
 }
 
@@ -58,7 +60,8 @@ void SwellReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     const float rise_time_s = 0.08f + params.param1 * 3.92f;
     ramp_rate_ = 1.0f / (rise_time_s * SAMPLE_RATE);
@@ -83,14 +86,14 @@ StereoFrame SwellReverb::Process(float input, const ParamSet& params) {
     if (params.param2 < 0.5f) {
         // Swell Wet: reverb fades in
         const StereoFrame late = fdn_.Process(pre * ramp_gain_);
-        out.left  = tone_.Process(late.left);
-        out.right = tone_.Process(late.right);
+        out.left  = tone_[0].Process(late.left);
+        out.right = tone_[1].Process(late.right);
     } else {
         // Swell Dry: reverb fades out
         const StereoFrame late = fdn_.Process(pre);
         const float scale = 1.0f - ramp_gain_;
-        out.left  = tone_.Process(late.left  * scale);
-        out.right = tone_.Process(late.right * scale);
+        out.left  = tone_[0].Process(late.left  * scale);
+        out.right = tone_[1].Process(late.right * scale);
     }
     return out;
 }

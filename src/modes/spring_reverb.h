@@ -23,7 +23,7 @@ private:
     DelayAllpassFilter ap_[3][6];
     CombFilter         comb_[3];
     Saturation         sat_;
-    ToneFilter         tone_;
+    ToneFilter         tone_[2];
     Lfo                spring_lfo_[3];
     float              mod_depth_ = 0.0f;
     bool               hold_ = false;

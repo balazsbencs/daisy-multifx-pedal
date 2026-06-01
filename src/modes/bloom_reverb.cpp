@@ -50,7 +50,8 @@ void BloomReverb::Init() {
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     bloom_env_       = 0.0f;
     bloom_rate_      = 1.0f / (2.0f * SAMPLE_RATE);
     bloom_feedback_  = 0.0f;
@@ -61,7 +62,8 @@ void BloomReverb::Reset() {
     pre_delay_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     bloom_env_       = 0.0f;
     bloom_fb_signal_ = 0.0f;
 }
@@ -71,7 +73,8 @@ void BloomReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     const float bloom_time_s = 0.5f + params.param1 * 4.5f;
     bloom_rate_    = 1.0f / (bloom_time_s * SAMPLE_RATE);
@@ -95,8 +98,8 @@ StereoFrame BloomReverb::Process(float input, const ParamSet& /*params*/) {
     bloom_fb_signal_ = bloom_env_ * 0.5f * (late.left + late.right);
 
     const StereoFrame out{
-        tone_.Process(late.left  * bloom_env_),
-        tone_.Process(late.right * bloom_env_)
+        tone_[0].Process(late.left  * bloom_env_),
+        tone_[1].Process(late.right * bloom_env_)
     };
     return out;
 }

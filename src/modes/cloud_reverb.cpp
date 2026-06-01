@@ -60,7 +60,8 @@ void CloudReverb::Init() {
     fdn_.SetDecay(10.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
 }
 
 void CloudReverb::Reset() {
@@ -68,7 +69,8 @@ void CloudReverb::Reset() {
     diffuser0_.Reset();
     diffuser1_.Reset();
     fdn_.Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
 }
 
 void CloudReverb::Prepare(const ParamSet& params) {
@@ -84,7 +86,8 @@ void CloudReverb::Prepare(const ParamSet& params) {
     const float damp = 0.1f + params.param2 * 0.4f;
     fdn_.SetDamping(damp);
 
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
     fdn_.PrepareBlock();
 }
 
@@ -99,8 +102,8 @@ StereoFrame CloudReverb::Process(float input, const ParamSet& /*params*/) {
     const StereoFrame late = fdn_.Process(diffused);
 
     const StereoFrame out{
-        tone_.Process(late.left),
-        tone_.Process(late.right)
+        tone_[0].Process(late.left),
+        tone_[1].Process(late.right)
     };
     return out;
 }

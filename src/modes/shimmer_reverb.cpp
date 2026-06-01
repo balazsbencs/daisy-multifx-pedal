@@ -57,7 +57,8 @@ void ShimmerReverb::Init() {
     pitch_shifter_[0].SetShift(12.0f);
     pitch_shifter_[1].SetShift(7.0f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     hold_           = false;
     pitch_fb_l_     = 0.0f;
     pitch_fb_r_     = 0.0f;
@@ -69,7 +70,8 @@ void ShimmerReverb::Reset() {
     fdn_.Reset();
     pitch_shifter_[0].Reset();
     pitch_shifter_[1].Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
     hold_           = false;
     pitch_fb_l_     = 0.0f;
     pitch_fb_r_     = 0.0f;
@@ -80,7 +82,8 @@ void ShimmerReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     // Stagger Left and Right pitch shifts by +/-10 cents (0.10 semitones) for stereo width
     pitch_shifter_[0].SetShift(params.param1 - 0.10f);
@@ -108,8 +111,8 @@ StereoFrame ShimmerReverb::Process(float input, const ParamSet& params) {
 
     // Blend pitch-shifted outputs directly into the left and right output channels
     const StereoFrame out{
-        tone_.Process(late.left  + shimmer_amount * pitch_fb_l_ * 0.5f),
-        tone_.Process(late.right + shimmer_amount * pitch_fb_r_ * 0.5f)
+        tone_[0].Process(late.left  + shimmer_amount * pitch_fb_l_ * 0.5f),
+        tone_[1].Process(late.right + shimmer_amount * pitch_fb_r_ * 0.5f)
     };
     return out;
 }

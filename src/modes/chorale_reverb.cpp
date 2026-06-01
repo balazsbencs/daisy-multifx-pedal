@@ -44,14 +44,16 @@ void ChoraleReverb::Init() {
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
 
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
 }
 
 void ChoraleReverb::Reset() {
     pre_delay_.Reset();
     formant_.Reset();
     fdn_.Reset();
-    tone_.Init();
+    tone_[0].Init();
+    tone_[1].Init();
 }
 
 void ChoraleReverb::Prepare(const ParamSet& params) {
@@ -59,7 +61,8 @@ void ChoraleReverb::Prepare(const ParamSet& params) {
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
     fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
-    tone_.SetKnob(params.tone);
+    tone_[0].SetKnob(params.tone);
+    tone_[1].SetKnob(params.tone);
 
     const int vowel = static_cast<int>(params.param1 * 6.0f + 0.5f);
     formant_.SetVowel(vowel < 0 ? 0 : (vowel > 6 ? 6 : vowel));
@@ -81,8 +84,8 @@ StereoFrame ChoraleReverb::Process(float input, const ParamSet& /*params*/) {
     const StereoFrame late = fdn_.Process(shaped);
 
     const StereoFrame out{
-        tone_.Process(late.left),
-        tone_.Process(late.right)
+        tone_[0].Process(late.left),
+        tone_[1].Process(late.right)
     };
     return out;
 }

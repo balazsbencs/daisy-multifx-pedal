@@ -21,7 +21,7 @@ private:
     DelayLineSdram pre_delay_;
     FormantFilter  formant_;
     Fdn            fdn_;
-    ToneFilter     tone_;
+    ToneFilter     tone_[2];
 };
 
 } // namespace pedal
