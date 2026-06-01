@@ -20,6 +20,7 @@ private:
     Lfo         lfo_;
     ToneFilter  filter_;
     DcBlocker   dc_;
+    DcBlocker   dc_fb_;
     BbdEmulator bbd_;
     uint32_t    noise_seed_   = 12345u;
     float       delay_smooth_ = 0.0f;

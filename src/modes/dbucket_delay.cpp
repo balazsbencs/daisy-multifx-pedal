@@ -16,6 +16,7 @@ void DbucketDelay::Init() {
     filter_.Init();
     filter_.SetKnob(0.4f);
     dc_.Init();
+    dc_fb_.Init();
     bbd_.Reset();
     noise_seed_   = 12345u;
     delay_smooth_ = 0.0f;
@@ -24,6 +25,7 @@ void DbucketDelay::Init() {
 void DbucketDelay::Reset() {
     dbucket_line.Reset();
     dc_.Init();
+    dc_fb_.Init();
     bbd_.Reset();
     noise_seed_   = 12345u;
     delay_smooth_ = 0.0f;
@@ -54,7 +56,7 @@ StereoFrame DbucketDelay::Process(float input, const ParamSet& params) {
     wet = bbd_.Deemphasis(wet);
     wet = filter_.Process(wet);
 
-    const float feedback = wet * params.repeats;
+    const float feedback = dc_fb_.Process(wet * params.repeats);
     float write_in = bbd_.Process(input + feedback, params.grit, noise_seed_, delay_samps);
     dbucket_line.Write(write_in);
 

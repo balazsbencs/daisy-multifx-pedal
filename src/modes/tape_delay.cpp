@@ -20,6 +20,7 @@ void TapeDelay::Init() {
     sat_.Init(WaveCurve::Tape);
     dc_l_.Init();
     dc_r_.Init();
+    dc_fb_.Init();
     env_state_ = 0.0f;
     tape_lp_ = 0.0f;
 }
@@ -30,6 +31,7 @@ void TapeDelay::Reset() {
     tape_line.Reset();
     dc_l_.Init();
     dc_r_.Init();
+    dc_fb_.Init();
     env_state_ = 0.0f;
     tape_lp_ = 0.0f;
     delay_smooth_ = 0.0f;
@@ -117,7 +119,7 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     const float comp = 1.0f / (1.0f + params.grit * 12.33f);
     fb_mono *= comp;
 
-    const float feedback = fb_lim_.Process(fb_mono * params.repeats);
+    const float feedback = dc_fb_.Process(fb_lim_.Process(fb_mono * params.repeats));
     float write_val = input + feedback;
     // Hard stop: limiter guards feedback only; dry input can push write_val > 1.0.
     // ±2.0 prevents delay buffer runaway while preserving musical headroom.
