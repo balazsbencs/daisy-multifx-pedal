@@ -100,7 +100,7 @@ StereoFrame QuadratureMode::Process(StereoFrame input, const ParamSet& params) {
             // FM — Hilbert-based pitch vibrato.
             // The LFO sweeps the instantaneous carrier frequency, creating
             // a pitch wobble via single-sideband rotation of the analytic signal.
-            const float wet = re * cos_c - im * sin_c;
+            const float wet = dc_.Process(re * cos_c - im * sin_c);
             return {wet, wet};
         }
 
@@ -109,7 +109,7 @@ StereoFrame QuadratureMode::Process(StereoFrame input, const ParamSet& params) {
             // P1 blends shifted signal with unshifted real part.
             const float shifted = re * cos_c - im * sin_c;
             const float blend   = params.p1;
-            const float out     = shifted * (1.0f - blend) + re * blend;
+            const float out     = dc_.Process(shifted * (1.0f - blend) + re * blend);
             return {out, out};
         }
 
@@ -117,7 +117,7 @@ StereoFrame QuadratureMode::Process(StereoFrame input, const ParamSet& params) {
             // FreqShift- — single-sideband downward shift.
             const float shifted = re * cos_c + im * sin_c;
             const float blend   = params.p1;
-            const float out     = shifted * (1.0f - blend) + re * blend;
+            const float out     = dc_.Process(shifted * (1.0f - blend) + re * blend);
             return {out, out};
         }
 
