@@ -33,6 +33,7 @@ void LofiDelay::Reset() {
     decimate_     = 1.0f;
     aa_lp_        = 0.0f;
     delay_smooth_ = 0.0f;
+    fb_lim_.Reset();
 }
 
 void LofiDelay::Prepare(const ParamSet& params) {
@@ -81,7 +82,7 @@ StereoFrame LofiDelay::Process(float input, const ParamSet& params) {
     }
     wet = held_sample_;
 
-    const float feedback = wet * params.repeats;
+    const float feedback = fb_lim_.Process(wet * params.repeats);
     lofi_line.Write(input + feedback);
 
     wet = dc_.Process(wet);

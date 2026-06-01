@@ -32,6 +32,8 @@ void DualDelay::Reset() {
     dc_r_.Init();
     delay_smooth_l_ = 0.0f;
     delay_smooth_r_ = 0.0f;
+    fb_lim_l_.Reset();
+    fb_lim_r_.Reset();
 }
 
 void DualDelay::Prepare(const ParamSet& params) {
@@ -73,8 +75,8 @@ StereoFrame DualDelay::Process(float input, const ParamSet& params) {
     wet_r = filter_r_.Process(wet_r);
 
     // Dynamic ping-pong crossfader based on grit (0.0 = parallel, 1.0 = full ping-pong)
-    const float fb_l = wet_l * params.repeats;
-    const float fb_r = wet_r * params.repeats;
+    const float fb_l = fb_lim_l_.Process(wet_l * params.repeats);
+    const float fb_r = fb_lim_r_.Process(wet_r * params.repeats);
     const float pp = params.grit;
 
     const float write_l = input + (1.0f - pp) * fb_l + pp * fb_r;

@@ -33,6 +33,8 @@ void FilterDelay::Reset() {
     svf_r_.Reset();
     delay_smooth_l_ = 0.0f;
     delay_smooth_r_ = 0.0f;
+    fb_lim_l_.Reset();
+    fb_lim_r_.Reset();
 }
 
 void FilterDelay::Prepare(const ParamSet& params) {
@@ -88,14 +90,8 @@ StereoFrame FilterDelay::Process(float input, const ParamSet& params) {
         wet_r = svf_r_.hp();
     }
 
-    // Hard-clamp before feedback to prevent runaway self-oscillation
-    if (wet_l >  1.0f) wet_l =  1.0f;
-    if (wet_l < -1.0f) wet_l = -1.0f;
-    if (wet_r >  1.0f) wet_r =  1.0f;
-    if (wet_r < -1.0f) wet_r = -1.0f;
-
-    const float feedback_l = wet_l * params.repeats;
-    const float feedback_r = wet_r * params.repeats;
+    const float feedback_l = fb_lim_l_.Process(wet_l * params.repeats);
+    const float feedback_r = fb_lim_r_.Process(wet_r * params.repeats);
 
     filter_line_l.Write(input + feedback_l);
     filter_line_r.Write(input + feedback_r);

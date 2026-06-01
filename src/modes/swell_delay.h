@@ -2,6 +2,7 @@
 #include "delay_mode.h"
 #include "../dsp/envelope_follower.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/feedback_limiter.h"
 
 namespace pedal {
 
@@ -18,6 +19,7 @@ private:
 
     EnvelopeFollower follower_;
     DcBlocker        dc_;
+    FeedbackLimiter  fb_lim_;
 
     SwellState state_    = SwellState::Idle;
     float      env_gain_ = 0.0f;

@@ -27,6 +27,7 @@ void SwellDelay::Reset() {
     decay_rate_           = 0.0f;
     delay_smooth_         = 0.0f;
     prev_above_threshold_ = false;
+    fb_lim_.Reset();
 }
 
 void SwellDelay::Prepare(const ParamSet& params) {
@@ -84,7 +85,7 @@ StereoFrame SwellDelay::Process(float input, const ParamSet& params) {
 
     float wet = swell_line.Read() * env_gain_;
 
-    const float feedback = wet * params.repeats;
+    const float feedback = fb_lim_.Process(wet * params.repeats);
     swell_line.Write(input + feedback);
 
     wet = dc_.Process(wet);

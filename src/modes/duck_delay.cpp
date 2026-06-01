@@ -23,6 +23,7 @@ void DuckDelay::Reset() {
     duck_line.Reset();
     dc_.Init();
     delay_smooth_ = 0.0f;
+    fb_lim_.Reset();
 }
 
 void DuckDelay::Prepare(const ParamSet& params) {
@@ -55,7 +56,7 @@ StereoFrame DuckDelay::Process(float input, const ParamSet& params) {
     float wet = duck_line.Read();
     wet = filter_.Process(wet);
 
-    const float feedback = wet * params.repeats;
+    const float feedback = fb_lim_.Process(wet * params.repeats);
     duck_line.Write(input + feedback);
 
     wet *= duck_amount;

@@ -3,6 +3,7 @@
 #include "../dsp/lfo.h"
 #include "../dsp/svf.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/feedback_limiter.h"
 
 namespace pedal {
 
@@ -20,6 +21,8 @@ private:
     Svf       svf_r_;
     DcBlocker dc_l_;
     DcBlocker dc_r_;
+    FeedbackLimiter fb_lim_l_;
+    FeedbackLimiter fb_lim_r_;
     float     delay_smooth_l_ = 0.0f;
     float     delay_smooth_r_ = 0.0f;
 

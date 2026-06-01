@@ -3,6 +3,7 @@
 #include "../dsp/lfo.h"
 #include "../dsp/tone_filter.h"
 #include "../dsp/dc_blocker.h"
+#include "../dsp/feedback_limiter.h"
 
 namespace pedal {
 
@@ -19,6 +20,7 @@ private:
     ToneFilter filter_;
     DcBlocker  dc_;
     float      delay_smooth_ = 0.0f;
+    FeedbackLimiter fb_lim_;
 };
 
 } // namespace pedal

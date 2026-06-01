@@ -21,6 +21,7 @@ void TremDelay::Reset() {
     trem_line.Reset();
     dc_.Init();
     delay_smooth_ = 0.0f;
+    fb_lim_.Reset();
 }
 
 void TremDelay::Prepare(const ParamSet& params) {
@@ -40,7 +41,7 @@ StereoFrame TremDelay::Process(float input, const ParamSet& params) {
     float wet = trem_line.Read();
     wet = filter_.Process(wet);
 
-    const float feedback = wet * params.repeats;
+    const float feedback = fb_lim_.Process(wet * params.repeats);
     trem_line.Write(input + feedback);
 
     wet *= gain;
