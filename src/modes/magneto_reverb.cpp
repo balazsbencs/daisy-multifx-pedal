@@ -30,11 +30,13 @@ void MagnetoReverb::Init() {
 
     n_heads_ = 4;
     for (auto& h : head_delays_) h = 0.0f;
+    fb_lp_ = 0.0f;
 }
 
 void MagnetoReverb::Reset() {
     delay_.Reset();
     diffuser_.Reset();
+    fb_lp_ = 0.0f;
 }
 
 void MagnetoReverb::Prepare(const ParamSet& params) {
@@ -72,7 +74,7 @@ StereoFrame MagnetoReverb::Process(float input, const ParamSet& params) {
     const float g = 1.0f / (float)n_heads_;
 
     for (int i = 0; i < n_heads_; ++i) {
-        const float tap = delay_.ReadNearest(head_delays_[i]) * g;
+        const float tap = delay_.ReadLinear(head_delays_[i]) * g;
         if ((i & 1) == 0) left  += tap;
         else               right += tap;
     }
@@ -88,9 +90,13 @@ StereoFrame MagnetoReverb::Process(float input, const ParamSet& params) {
     if (l_heads > 0.0f) left  *= 0.7f / l_heads;
     if (r_heads > 0.0f) right *= 0.7f / r_heads;
 
-    // Write input + feedback into delay
-    const float fb  = params.pre_delay;  // 0..0.95
-    delay_.Write(input + fb * 0.5f * (left + right));
+    // Write input + feedback into delay.
+    // One-pole LP tames broadband brightness; cap keeps the loop stable.
+    float fb = params.pre_delay;          // 0..0.95
+    if (fb > 0.85f) fb = 0.85f;
+    const float fb_in = 0.5f * (left + right);
+    fb_lp_ += 0.4f * (fb_in - fb_lp_);
+    delay_.Write(input + fb * fb_lp_);
 
     return StereoFrame{left, right};
 }

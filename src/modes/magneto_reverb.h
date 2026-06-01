@@ -18,6 +18,7 @@ private:
     Diffuser       diffuser_;
     int            n_heads_        = 4;
     float          head_delays_[6]{};
+    float          fb_lp_ = 0.0f;
 };
 
 } // namespace pedal
