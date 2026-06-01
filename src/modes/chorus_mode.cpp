@@ -150,11 +150,15 @@ StereoFrame ChorusMode::Process(StereoFrame input, const ParamSet& params) {
         // Average feeds back; keeps the summed signal from building up.
         fb_samp_ = (wet_l + wet_r) * 0.5f;
     } else {
-        // Single-voice (Vibrato=2, Digital=4): per-sample LFO, mono output
-        float d = base_samps_ + mod_depth_ * lfo_[0].Process();
-        if (d < 1.0f) d = 1.0f;
-        if (d > kBufMax) d = kBufMax;
-        wet_l = wet_r = s_chorus_line.ReadAt(d);
+        // Single-voice (Vibrato=2, Digital=4): two taps at 120° LFO offset for width
+        float d_l = base_samps_ + mod_depth_ * lfo_[0].Process();
+        float d_r = base_samps_ + mod_depth_ * lfo_[1].Process();
+        if (d_l < 1.0f) d_l = 1.0f;
+        if (d_l > kBufMax) d_l = kBufMax;
+        if (d_r < 1.0f) d_r = 1.0f;
+        if (d_r > kBufMax) d_r = kBufMax;
+        wet_l = s_chorus_line.ReadAt(d_l);
+        wet_r = s_chorus_line.ReadAt(d_r);
     }
 
     wet_l = dc_.Process(wet_l);
