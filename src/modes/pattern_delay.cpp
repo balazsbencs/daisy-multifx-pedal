@@ -23,6 +23,7 @@ void PatternDelay::Init() {
 void PatternDelay::Reset() {
     pattern_line.Reset();
     dc_.Init();
+    delay_smooth_ = 0.0f;
 }
 
 void PatternDelay::Prepare(const ParamSet& params) {
@@ -32,9 +33,10 @@ void PatternDelay::Prepare(const ParamSet& params) {
 }
 
 StereoFrame PatternDelay::Process(float input, const ParamSet& params) {
+    static constexpr float kDelaySlew = 0.001f;
     const float lfo_val = lfo_out_;
-    float base_samps    = params.time * SAMPLE_RATE
-                        + lfo_val * (params.mod_dep * 25.0f);
+    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    float base_samps = delay_smooth_ + lfo_val * (params.mod_dep * 25.0f);
     if (base_samps < 1.0f) base_samps = 1.0f;
 
     // Select pattern: grit 0..0.333 -> 0, 0.333..0.667 -> 1, 0.667..1 -> 2
