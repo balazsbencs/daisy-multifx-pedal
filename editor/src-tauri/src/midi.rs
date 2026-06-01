@@ -44,29 +44,31 @@ pub fn connect(
         s.input_active = true;
     }
 
-    // Input connection (spawned — lives for the duration of the session)
-    let mut midi_in = MidiInput::new("multi-fx-in").map_err(|e| e.to_string())?;
-    midi_in.ignore(Ignore::None); // don't ignore SysEx
-    let in_ports = midi_in.ports();
-    let in_port = in_ports
-        .iter()
-        .find(|p| midi_in.port_name(p).ok().as_deref() == Some(port_name))
-        .ok_or_else(|| "input port not found".to_string())?
-        .clone();
-
-    let state_clone = Arc::clone(&state);
-    std::thread::spawn(move || {
-        let _conn = midi_in.connect(
-            &in_port,
-            "multi-fx-in",
-            move |_timestamp, message, _| {
-                handle_incoming(message, &app, &state_clone);
-            },
-            (),
-        );
-        // Block forever — the thread keeps the connection alive.
-        loop { std::thread::sleep(std::time::Duration::from_secs(3600)); }
+    // Input connection (optional — no SysEx responses without it, but CC/mode/sysex
+    // sending still works with output-only).
+    let mut midi_in = match MidiInput::new("multi-fx-in") {
+        Ok(mut m) => { m.ignore(Ignore::None); Some(m) }
+        Err(_) => None,
+    };
+    let in_port = midi_in.as_ref().and_then(|m| {
+        m.ports().into_iter().find(|p| m.port_name(p).ok().as_deref() == Some(port_name))
     });
+
+    if let (Some(midi_in), Some(in_port)) = (midi_in.take(), in_port) {
+        let state_clone = Arc::clone(&state);
+        std::thread::spawn(move || {
+            let _conn = midi_in.connect(
+                &in_port,
+                "multi-fx-in",
+                move |_timestamp, message, _| {
+                    handle_incoming(message, &app, &state_clone);
+                },
+                (),
+            );
+            // Block forever — the thread keeps the connection alive.
+            loop { std::thread::sleep(std::time::Duration::from_secs(3600)); }
+        });
+    }
 
     Ok(())
 }
@@ -77,6 +79,24 @@ fn handle_incoming(message: &[u8], app: &AppHandle, _state: &Arc<Mutex<MidiState
     if message[0] == 0xF0 && message.len() >= 3 && message[1] == 0x7D {
         let _ = app.emit("midi-sysex", message.to_vec());
     }
+}
+
+/// Spawns a background thread that polls the MIDI output port list every 1.5 s.
+/// Emits "midi-ports-changed" to the frontend whenever the list changes.
+/// This handles devices that enumerate after the app starts, or that briefly
+/// drop off and re-appear (e.g. Daisy Seed rebooting after a firmware flash).
+pub fn watch_ports(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut last: Vec<String> = vec![];
+        loop {
+            let current = list_ports();
+            if current != last {
+                last = current.clone();
+                let _ = app.emit("midi-ports-changed", current);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+        }
+    });
 }
 
 pub fn send_raw(state: &Arc<Mutex<MidiState>>, bytes: &[u8]) -> Result<(), String> {

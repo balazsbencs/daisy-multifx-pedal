@@ -210,6 +210,15 @@ export function useMidi() {
     return () => { unlisten.then((fn) => fn()); };
   }, []);
 
+  // Auto-update port list when the Rust watcher detects a change
+  // (handles devices that enumerate after app start or reconnect after reset)
+  useEffect(() => {
+    const unlisten = listen<string[]>("midi-ports-changed", (event) => {
+      setPorts(event.payload);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
   return {
     ports,
     connected,
@@ -217,6 +226,7 @@ export function useMidi() {
     midiError,
     refreshPorts,
     connect,
+    reportError,
     sendCC,
     setMode,
     setFxEnabled,

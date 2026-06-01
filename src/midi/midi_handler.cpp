@@ -48,10 +48,9 @@ void MidiHandlerPedal::ProcessEvent(daisy::MidiEvent e, MultiMidiState& out) {
             if (e.data[0] == 0xF8) out.clock_tick = true;
             if (e.data[0] == 0xFC) out.clock_stop = true;
             break;
-        case daisy::SystemExclusive:
-            // sysex_data contains bytes between F0 and F7 (exclusive).
-            // data[0] = manufacturer ID (0x7D), data[1] = command.
-            HandleSysEx(e.sysex_data, e.sysex_message_len, out);
+        case daisy::SystemCommon:
+            if (e.sc_type == daisy::SystemExclusive)
+                HandleSysEx(e.sysex_data, e.sysex_message_len, out);
             break;
         default: break;
     }

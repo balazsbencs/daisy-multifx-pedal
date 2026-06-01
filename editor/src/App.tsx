@@ -50,7 +50,7 @@ export default function App() {
 
   const handleConnect = useCallback(async (portName: string) => {
     try { await midi.connect(portName); }
-    catch (e) { console.error("MIDI connect failed:", e); }
+    catch (e) { midi.reportError(`Connect failed: ${e}`); }
   }, [midi]);
 
   const handleParamChange = useCallback(
@@ -77,14 +77,15 @@ export default function App() {
   const handleFxToggle = useCallback(
     (stage: "mod" | "delay" | "reverb") => {
       const stageIndex = stage === "mod" ? 0 : stage === "delay" ? 1 : 2;
+      const newEnabled = !fxEnabled[stageIndex];
       setFxEnabled(prev => {
         const next: [boolean, boolean, boolean] = [...prev] as [boolean, boolean, boolean];
-        next[stageIndex] = !prev[stageIndex];
-        midi.setFxEnabled(stageIndex, next[stageIndex]);
+        next[stageIndex] = newEnabled;
         return next;
       });
+      midi.setFxEnabled(stageIndex, newEnabled);
     },
-    [midi]
+    [midi, fxEnabled]
   );
 
   const handlePresetSelect = useCallback(

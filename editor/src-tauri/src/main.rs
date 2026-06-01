@@ -12,6 +12,10 @@ fn main() {
 
     tauri::Builder::default()
         .manage(midi_state)
+        .setup(|app| {
+            midi::watch_ports(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::list_midi_ports,
             commands::connect_midi,
