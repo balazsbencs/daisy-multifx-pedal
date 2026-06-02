@@ -69,6 +69,11 @@ private:
 
     float last_rev_mix_   = -1.0f;
     float rev_dry_  = 1.0f, rev_wet_  = 0.0f, rev_norm_  = 1.0f;
+
+    // Reverb sub-sampling: compute every other sample, hold output in between.
+    // Halves reverb CPU; reverb tails are smooth enough that 24 kHz cadence is inaudible.
+    bool        reverb_phase_ = false;
+    StereoFrame reverb_last_  = {};
 };
 
 } // namespace pedal

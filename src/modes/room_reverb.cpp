@@ -73,7 +73,8 @@ void RoomReverb::Reset() {
 
 void RoomReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
-    pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
+    const float rounded = (delay_samples < 1.0f ? 1.0f : delay_samples) + 0.5f;
+    pre_delay_.SetDelay(static_cast<float>(static_cast<size_t>(rounded)));
     fdn_.SetDecay(params.decay);
     fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);
     fdn_.SetModulation(params.mod * 8.0f);

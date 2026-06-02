@@ -38,17 +38,18 @@ static inline size_t wrap_idx(size_t base, size_t offset, size_t size) {
 }
 
 float DelayLineSdram::Read() const {
-    const size_t d  = delay_;  // clamped to [2, size_-3] by SetDelay
-    const float  t  = frac_;
+    const size_t d = delay_;  // clamped to [2, size_-3] by SetDelay
+    const float  t = frac_;
+    // Fast path for integer delays (frac_==0): allpass filters always land here.
+    if (t == 0.0f) return buf_[wrap_idx(write_, d, size_)];
     const float xm1 = buf_[wrap_idx(write_, d - 1, size_)];
     const float x0  = buf_[wrap_idx(write_, d,     size_)];
     const float x1  = buf_[wrap_idx(write_, d + 1, size_)];
     const float x2  = buf_[wrap_idx(write_, d + 2, size_)];
-    const float c0  = x0;
     const float c1  = 0.5f * (x1 - xm1);
     const float c2  = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
     const float c3  = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
-    return ((c3 * t + c2) * t + c1) * t + c0;
+    return ((c3 * t + c2) * t + c1) * t + x0;
 }
 
 float DelayLineSdram::ReadAt(float delay_samples) const {

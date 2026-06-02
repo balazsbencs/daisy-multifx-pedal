@@ -9,7 +9,7 @@ namespace pedal {
 namespace {
 
 static float DSY_SDRAM_BSS buf_pre_delay[24000];
-static float DSY_SDRAM_BSS buf_er[6144];
+static float DSY_SDRAM_BSS buf_er[4096];
 static float DSY_SDRAM_BSS buf_diff0[Diffuser::kDelays[0] + 1];
 static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
@@ -19,15 +19,11 @@ static float DSY_SDRAM_BSS buf_fdn1[4159];
 static float DSY_SDRAM_BSS buf_fdn2[5903];
 static float DSY_SDRAM_BSS buf_fdn3[6997];
 
-static constexpr ErTap kErTaps[8] = {
+static constexpr ErTap kErTaps[4] = {
     { 480,  0.78f, -0.70f},
     { 912,  0.68f,  0.70f},
-    {1392,  0.58f, -0.50f},
-    {2016,  0.48f,  0.50f},
     {2688,  0.38f, -0.90f},
     {3504,  0.32f,  0.90f},
-    {4416,  0.25f, -0.40f},
-    {5424,  0.18f,  0.40f},
 };
 
 } // namespace
@@ -36,8 +32,8 @@ void HallReverb::Init() {
     pre_delay_.Init(buf_pre_delay, 24000);
     pre_delay_.SetDelay(1.0f);
 
-    er_.Init(buf_er, 6144);
-    er_.SetTaps(kErTaps, 8);
+    er_.Init(buf_er, 4096);
+    er_.SetTaps(kErTaps, 4);
 
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
@@ -71,7 +67,10 @@ void HallReverb::Reset() {
 
 void HallReverb::Prepare(const ParamSet& params) {
     const float delay_samples = params.pre_delay * SAMPLE_RATE;
-    pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
+    // Round to integer samples: pre-delay has no sub-sample modulation so Hermite
+    // precision is wasted. Integer delay triggers the Read() fast path (1 read vs 4).
+    const float rounded = (delay_samples < 1.0f ? 1.0f : delay_samples) + 0.5f;
+    pre_delay_.SetDelay(static_cast<float>(static_cast<size_t>(rounded)));
     fdn_.SetDecay(params.decay);
     // tone: 0=dark (HF RT60 = 30% of LF), 1=bright (HF RT60 = LF, uniform decay)
     fdn_.SetDampFromRt60Ratio(params.decay, 0.30f + params.tone * 0.70f);

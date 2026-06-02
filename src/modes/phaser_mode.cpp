@@ -7,12 +7,13 @@ using namespace pedal::mod_fx;
 
 namespace pedal {
 
-// Padé tanh approximation: unity gain for small signals, soft limit toward ±1.
+// Padé tanh approximation: unity gain for small signals, soft limit toward ±0.5.
+// Equivalent to tanhf(x*2)/2 but avoids libm. NaN-safe: !(x>-3) catches NaN.
 static inline float fb_softclip(float x) {
-    if (x <= -3.0f) return -1.0f;
-    if (x >=  3.0f) return  1.0f;
+    if (!(x > -3.0f)) return -0.5f;
+    if (!(x <  3.0f)) return  0.5f;
     const float x2 = x * x;
-    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+    return 0.5f * x * (27.0f + x2) / (27.0f + 9.0f * x2);
 }
 
 // Stage counts per sub-mode. Barber Pole (6) uses two 4-stage chains — value unused in that path.
@@ -75,8 +76,8 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         if (coeff2 > -0.01f) coeff2 = -0.01f;
         if (coeff2 < -0.99f) coeff2 = -0.99f;
 
-        float xa = input.mono() + feedback_  * regen;
-        float xb = input.mono() + feedback2_ * regen;
+        float xa = input.mono() + fb_softclip(feedback_)  * regen;
+        float xb = input.mono() + fb_softclip(feedback2_) * regen;
         for (int i = 0; i < 4; ++i) {
             stages_[i].SetCoeff(coeff);
             xa = stages_[i].Process(xa);

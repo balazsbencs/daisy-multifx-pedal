@@ -203,19 +203,37 @@ int main() {
     led_fx[0].Init(pins::LED_FX_MOD,    GPIO::Mode::OUTPUT);
     led_fx[1].Init(pins::LED_FX_DELAY,  GPIO::Mode::OUTPUT);
     led_fx[2].Init(pins::LED_FX_REVERB, GPIO::Mode::OUTPUT);
-    for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
 
+    // ── Boot diagnostics: LED pattern encodes last completed checkpoint ──────
+    // If the device freezes during init the LEDs hold their last-written state.
+    // Pattern key (MOD / DELAY / REVERB):
+    //   1,0,0 = after LED GPIO init
+    //   0,1,0 = after audio_engine + mode switches
+    //   1,1,0 = after midi_handler.Init
+    //   0,0,1 = after display.Init
+    //   1,0,1 = after preset_store.Init
+    //   0,1,1 = after live-state restore
+    //   1,1,1 = just before StartAudio  (main loop will overwrite these)
+    auto diag = [&](bool a, bool b, bool c) {
+        led_fx[0].Write(a); led_fx[1].Write(b); led_fx[2].Write(c);
+    };
+
+    diag(1,0,0);
     audio_engine.Init(&hw);
     SwitchModMode(cur_mod);
     SwitchDelayMode(cur_delay);
     SwitchReverbMode(cur_reverb);
 
+    diag(0,1,0);
     midi_handler.Init(hw, preset_store);
     // libDaisy's default UART MIDI uses D13/D14, which this build also uses
     // for the ST7789 CS/DC pins. Init the display after MIDI so those pins
     // end up configured for the screen, matching the working delay project.
+    diag(1,1,0);
     display.Init();
+    diag(0,0,1);
     preset_store.Init(hw.qspi);
+    diag(1,0,1);
 
     // ── Restore live state on boot ─────────────────────────────────────────
     {
@@ -232,16 +250,16 @@ int main() {
                 delay_norm[i]  = Clamp01(live.delay_norm[i]);
                 reverb_norm[i] = Clamp01(live.reverb_norm[i]);
             }
-            for (int i = 0; i < 3; ++i) {
-                fx_enabled[i] = live.fx_enabled[i];
-                led_fx[i].Write(fx_enabled[i]);
-            }
+            for (int i = 0; i < 3; ++i) fx_enabled[i] = live.fx_enabled[i];
         }
     }
+    diag(0,1,1);
 
     tempo_sync.Init();
 
+    diag(1,1,1);
     hw.StartAudio(AudioEngine::AudioCallback);
+    for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
 
     static uint32_t display_last_ms  = 0;
     static float    cpu_accum_       = 0.0f;

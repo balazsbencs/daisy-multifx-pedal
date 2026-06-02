@@ -75,12 +75,13 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     // Read Left tap (primary play head)
     float wet_l = tape_line.Read();
 
-    // Read Right tap (secondary play head, offset by 150 samples / ~3.1ms)
+    // Read Right tap (secondary play head, offset by 150 samples / ~3.1ms).
+    // Linear interpolation is sufficient for a fixed decorrelation offset.
     float delay_r = delay_samps + kStereoOffsetSamples;
     if (delay_r > static_cast<float>(MAX_DELAY_SAMPLES - 1)) {
         delay_r = static_cast<float>(MAX_DELAY_SAMPLES - 1);
     }
-    float wet_r = tape_line.ReadAt(delay_r);
+    float wet_r = tape_line.ReadLinear(delay_r);
 
     // Feedback is mono-summed and processed through tape color & dynamic HF limiter
     float fb_mono = 0.5f * (wet_l + wet_r);

@@ -128,12 +128,17 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
             s2 = s1;
         }
 
-        // Stage 3: reverb (mono input from s2.left → stereo out)
+        // Stage 3: reverb sub-sampled at 24 kHz (every other sample).
+        // Reverb tails change slowly enough that holding the output for 2 samples
+        // is inaudible; this halves the per-sample reverb CPU cost.
         StereoFrame s3;
         if (reverb_mode_ && p.fx_enabled[2]) {
-            const StereoFrame wet = reverb_mode_->Process(s2.left, p.reverb);
-            s3.left  = (s2.left * rev_dry_ + wet.left  * rev_wet_) * rev_norm_;
-            s3.right = (s2.left * rev_dry_ + wet.right * rev_wet_) * rev_norm_;
+            reverb_phase_ = !reverb_phase_;
+            if (reverb_phase_) {
+                reverb_last_ = reverb_mode_->Process(s2.left, p.reverb);
+            }
+            s3.left  = (s2.left * rev_dry_ + reverb_last_.left  * rev_wet_) * rev_norm_;
+            s3.right = (s2.left * rev_dry_ + reverb_last_.right * rev_wet_) * rev_norm_;
         } else {
             s3 = s2;
         }

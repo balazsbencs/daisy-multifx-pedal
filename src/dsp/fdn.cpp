@@ -127,14 +127,9 @@ StereoFrame Fdn::Process(float input) {
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
         lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
-        // NaN/Inf guard: exponent all-ones flags Inf or NaN in IEEE 754 single.
-        {
-            uint32_t bits;
-            std::memcpy(&bits, &lp_state_[i], sizeof(bits));
-            if ((bits & 0x7F800000u) == 0x7F800000u) {
-                lp_state_[i] = 0.0f;
-                dc_[i].Init();
-            }
+        if (!std::isfinite(lp_state_[i])) {
+            lp_state_[i] = 0.0f;
+            dc_[i].Init();
         }
     }
 
@@ -177,14 +172,9 @@ StereoFrame Fdn::Process(StereoFrame input) {
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
         lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
-        // NaN/Inf guard: exponent all-ones flags Inf or NaN in IEEE 754 single.
-        {
-            uint32_t bits;
-            std::memcpy(&bits, &lp_state_[i], sizeof(bits));
-            if ((bits & 0x7F800000u) == 0x7F800000u) {
-                lp_state_[i] = 0.0f;
-                dc_[i].Init();
-            }
+        if (!std::isfinite(lp_state_[i])) {
+            lp_state_[i] = 0.0f;
+            dc_[i].Init();
         }
     }
 
