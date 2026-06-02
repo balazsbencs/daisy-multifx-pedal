@@ -114,11 +114,6 @@ void DisplayManager::Render(int           active_page,
     DisplayRenderer::DrawText(layout::MODE_X, layout::MODE_Y,
                               mode_name, accent, kColorBlack, Font_11x18);
 
-    // Preset slot "P1".."P8"
-    char slot_buf[3] = { 'P', static_cast<char>('1' + (preset_slot % 8)), 0 };
-    DisplayRenderer::DrawText(layout::SLOT_X, layout::SLOT_Y,
-                              slot_buf, kColorWhite, kColorBlack, Font_7x10);
-
     // ── Separator lines ────────────────────────────────────────────────────────
     DisplayRenderer::HLine(0, layout::SEP1_Y, layout::SCREEN_W, kColorWhite);
     DisplayRenderer::HLine(0, layout::SEP2_Y, layout::SCREEN_W, kColorWhite);
@@ -245,21 +240,20 @@ void DisplayManager::Render(int           active_page,
                                   "ERR", kColorRed, kColorBlack, Font_6x8);
     }
 
-    // CPU usage: always shown, centre of status row
+    // Preset bank and slot — always shown, e.g. "B3 P07"
     {
-        char cpu_buf[8];
-        const int pct = static_cast<int>(cpu_usage_ * 100.0f + 0.5f);
-        cpu_buf[0] = 'C'; cpu_buf[1] = 'P'; cpu_buf[2] = 'U'; cpu_buf[3] = ' ';
-        if (pct >= 100) {
-            cpu_buf[4] = '1'; cpu_buf[5] = '0'; cpu_buf[6] = '0'; cpu_buf[7] = '\0';
-        } else {
-            cpu_buf[4] = static_cast<char>('0' + pct / 10);
-            cpu_buf[5] = static_cast<char>('0' + pct % 10);
-            cpu_buf[6] = '%'; cpu_buf[7] = '\0';
-        }
-        const uint16_t cpu_color = (pct >= layout::CPU_WARN_PCT) ? kColorRed : kColorWhite;
-        DisplayRenderer::DrawText(layout::CPU_X, layout::STATUS_Y, cpu_buf,
-                                  cpu_color, kColorBlack, Font_6x8);
+        const int disp_bank = preset_slot / PRESET_SLOTS_PER_BANK;
+        const int disp_slot = preset_slot % PRESET_SLOTS_PER_BANK;
+        char id_buf[7];
+        id_buf[0] = 'B';
+        id_buf[1] = static_cast<char>('0' + disp_bank);
+        id_buf[2] = ' ';
+        id_buf[3] = 'P';
+        id_buf[4] = static_cast<char>('0' + disp_slot / 10);
+        id_buf[5] = static_cast<char>('0' + disp_slot % 10);
+        id_buf[6] = '\0';
+        DisplayRenderer::DrawText(layout::PRESET_ID_X, layout::STATUS_Y,
+                                  id_buf, kColorWhite, kColorBlack, Font_6x8);
     }
 
     // ── Chain strip (y=292..319) ──────────────────────────────────────────────
