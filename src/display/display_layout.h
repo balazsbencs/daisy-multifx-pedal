@@ -16,11 +16,9 @@ constexpr uint16_t TAB_W          = 80;
 constexpr uint16_t TAB_TEXT_Y     = 5;      // (28-18)/2: centre Font_11x18 (18px) in 28px
 constexpr uint16_t TAB_TEXT_X_OFF = 23;     // (80-33)/2: centre "MOD"/"DLY"/"REV" (3×11px)
 
-// Mode name + preset slot (y=28..55, h=28)
+// Mode name (y=28..55, h=28)
 constexpr uint16_t MODE_Y  = 33;            // (28-18)/2 + 28
 constexpr uint16_t MODE_X  = 4;
-constexpr uint16_t SLOT_X  = 200;
-constexpr uint16_t SLOT_Y  = 33;
 
 // ── Separator lines ───────────────────────────────────────────────────────────
 constexpr uint16_t SEP1_Y = 55;
@@ -40,9 +38,8 @@ constexpr uint16_t BAR_W           = 148;
 // ── Status row (y=280..291, h=12) ─────────────────────────────────────────────
 constexpr uint16_t STATUS_Y       = 282;
 constexpr uint16_t HOLD_X         = 4;
-constexpr uint16_t CPU_X          = 90;
+constexpr uint16_t PRESET_ID_X    = 90;     // "B3 P07" — bank + slot
 constexpr uint16_t PRESET_EVT_X   = 174;
-constexpr int      CPU_WARN_PCT   = 80;
 
 // ── Chain strip (y=292..319, h=28) ────────────────────────────────────────────
 constexpr uint16_t CHAIN_Y        = 292;
