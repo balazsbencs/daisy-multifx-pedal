@@ -31,10 +31,7 @@ public:
                 PresetUiEvent preset_event,
                 uint32_t      now_ms);
 
-    void SetCpuUsage(float usage) { cpu_usage_ = usage; }
-
 private:
-    float cpu_usage_ = 0.0f;
     St7789Driver driver_;
 
     void Render(int           active_page,
