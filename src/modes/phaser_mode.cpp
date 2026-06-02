@@ -7,15 +7,6 @@ using namespace pedal::mod_fx;
 
 namespace pedal {
 
-// Padé tanh approximation: unity gain for small signals, soft limit toward ±0.5.
-// Equivalent to tanhf(x*2)/2 but avoids libm. NaN-safe: !(x>-3) catches NaN.
-static inline float fb_softclip(float x) {
-    if (!(x > -3.0f)) return -0.5f;
-    if (!(x <  3.0f)) return  0.5f;
-    const float x2 = x * x;
-    return 0.5f * x * (27.0f + x2) / (27.0f + 9.0f * x2);
-}
-
 // Stage counts per sub-mode. Barber Pole (6) uses two 4-stage chains — value unused in that path.
 static const int kStageCounts[] = {2, 4, 6, 8, 12, 16, 4};
 
@@ -76,8 +67,8 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         if (coeff2 > -0.01f) coeff2 = -0.01f;
         if (coeff2 < -0.99f) coeff2 = -0.99f;
 
-        float xa = input.mono() + fb_softclip(feedback_)  * regen;
-        float xb = input.mono() + fb_softclip(feedback2_) * regen;
+        float xa = input.mono() + feedback_  * regen;
+        float xb = input.mono() + feedback2_ * regen;
         for (int i = 0; i < 4; ++i) {
             stages_[i].SetCoeff(coeff);
             xa = stages_[i].Process(xa);
@@ -107,7 +98,9 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
     if (coeff_l < -0.99f) coeff_l = -0.99f;
 
     // Soft-clip feedback before injection: limits self-oscillation organically.
-    const float fb_l_clipped = fb_softclip(feedback_);
+    // drive = 2.0 gives unity gain for small signals, soft limit around ±0.5.
+    static constexpr float kFbDrive = 2.0f;
+    const float fb_l_clipped = tanhf(feedback_ * kFbDrive) / kFbDrive;
     float xl = input.mono() + fb_l_clipped * regen;
     for (int i = 0; i < num_stages_; ++i) {
         float sc = coeff_l;
@@ -127,7 +120,7 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
     if (coeff_r > -0.01f) coeff_r = -0.01f;
     if (coeff_r < -0.99f) coeff_r = -0.99f;
 
-    const float fb_r_clipped = fb_softclip(feedback_r_);
+    const float fb_r_clipped = tanhf(feedback_r_ * kFbDrive) / kFbDrive;
     float xr = input.mono() + fb_r_clipped * regen;
     for (int i = 0; i < num_stages_; ++i) {
         float sc = coeff_r;
