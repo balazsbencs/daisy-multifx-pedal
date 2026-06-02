@@ -108,6 +108,10 @@ void MidiHandlerPedal::HandleSysEx(const uint8_t* data, size_t len,
                     SendPresetData(b, s);
             break;
         }
+        case 0x06u: { // GET_STATUS — returns current active bank/slot via ACK
+            SendAck(cmd, true);
+            break;
+        }
         case 0x07u: { // SET_MODE
             if (len < 4u) { SendAck(cmd, false); return; }
             out.mode_change = true;
