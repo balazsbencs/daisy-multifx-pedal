@@ -43,11 +43,12 @@ export function useMidi() {
   );
   const [midiError, setMidiError] = useState<string | null>(null);
 
-  const ccThrottle    = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const errorTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const presetsRef    = useRef<(PresetData | null)[]>(Array(100).fill(null));
-  const loadPending   = useRef<Map<string, LoadPending>>(new Map());
-  const savePending   = useRef<SavePending | null>(null);
+  const ccThrottle      = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const errorTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presetsRef      = useRef<(PresetData | null)[]>(Array(100).fill(null));
+  const loadPending     = useRef<Map<string, LoadPending>>(new Map());
+  const savePending     = useRef<SavePending | null>(null);
+  const connectedPort   = useRef<string | null>(null);
 
   useEffect(() => { presetsRef.current = presets; }, [presets]);
 
@@ -64,6 +65,7 @@ export function useMidi() {
 
   const connect = useCallback(async (portName: string) => {
     await invoke("connect_midi", { portName });
+    connectedPort.current = portName;
     setConnected(true);
   }, []);
 
@@ -210,11 +212,25 @@ export function useMidi() {
     return () => { unlisten.then((fn) => fn()); };
   }, []);
 
-  // Auto-update port list when the Rust watcher detects a change
-  // (handles devices that enumerate after app start or reconnect after reset)
+  // Auto-update port list; auto-reconnect if connected port reappears (e.g. after firmware flash).
   useEffect(() => {
     const unlisten = listen<string[]>("midi-ports-changed", (event) => {
-      setPorts(event.payload);
+      const newPorts = event.payload;
+      setPorts(newPorts);
+      const port = connectedPort.current;
+      if (!port) return;
+      if (newPorts.includes(port)) {
+        // Port reappeared — silently re-establish the output connection.
+        invoke("connect_midi", { portName: port })
+          .then(() => setConnected(true))
+          .catch(() => {
+            connectedPort.current = null;
+            setConnected(false);
+          });
+      } else {
+        // Port gone — mark disconnected so the user can reconnect manually.
+        setConnected(false);
+      }
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);

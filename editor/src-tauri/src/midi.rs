@@ -81,20 +81,30 @@ fn handle_incoming(message: &[u8], app: &AppHandle, _state: &Arc<Mutex<MidiState
     }
 }
 
-/// Spawns a background thread that polls the MIDI output port list every 1.5 s.
+/// Spawns a background thread that polls the MIDI output port list every 500 ms.
 /// Emits "midi-ports-changed" to the frontend whenever the list changes.
 /// This handles devices that enumerate after the app starts, or that briefly
 /// drop off and re-appear (e.g. Daisy Seed rebooting after a firmware flash).
+///
+/// If `MidiOutput::new()` fails (transient CoreMIDI error on macOS background threads),
+/// the tick is skipped entirely — we never emit a false "empty" list that would wipe
+/// the port dropdown while the device is still live in Audio MIDI Setup.
 pub fn watch_ports(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last: Vec<String> = vec![];
         loop {
-            let current = list_ports();
-            if current != last {
-                last = current.clone();
-                let _ = app.emit("midi-ports-changed", current);
+            if let Ok(midi_out) = MidiOutput::new("multi-fx-watcher") {
+                let current: Vec<String> = midi_out
+                    .ports()
+                    .iter()
+                    .filter_map(|p| midi_out.port_name(p).ok())
+                    .collect();
+                if current != last {
+                    last = current.clone();
+                    let _ = app.emit("midi-ports-changed", current);
+                }
             }
-            std::thread::sleep(std::time::Duration::from_millis(1500));
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     });
 }
