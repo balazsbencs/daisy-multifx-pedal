@@ -86,23 +86,26 @@ fn handle_incoming(message: &[u8], app: &AppHandle, _state: &Arc<Mutex<MidiState
 /// This handles devices that enumerate after the app starts, or that briefly
 /// drop off and re-appear (e.g. Daisy Seed rebooting after a firmware flash).
 ///
-/// If `MidiOutput::new()` fails (transient CoreMIDI error on macOS background threads),
-/// the tick is skipped entirely — we never emit a false "empty" list that would wipe
-/// the port dropdown while the device is still live in Audio MIDI Setup.
+/// A single MidiOutput client is created once and reused across all ticks.
+/// Creating/destroying a CoreMIDI client on every tick caused "MIDI support
+/// currently unavailable" errors in concurrent connect_midi calls on macOS.
 pub fn watch_ports(app: AppHandle) {
     std::thread::spawn(move || {
+        // Retry until CoreMIDI is ready (can be unavailable briefly at app start).
+        let midi_out = loop {
+            if let Ok(o) = MidiOutput::new("multi-fx-watcher") { break o; }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        };
         let mut last: Vec<String> = vec![];
         loop {
-            if let Ok(midi_out) = MidiOutput::new("multi-fx-watcher") {
-                let current: Vec<String> = midi_out
-                    .ports()
-                    .iter()
-                    .filter_map(|p| midi_out.port_name(p).ok())
-                    .collect();
-                if current != last {
-                    last = current.clone();
-                    let _ = app.emit("midi-ports-changed", current);
-                }
+            let current: Vec<String> = midi_out
+                .ports()
+                .iter()
+                .filter_map(|p| midi_out.port_name(p).ok())
+                .collect();
+            if current != last {
+                last = current.clone();
+                let _ = app.emit("midi-ports-changed", current);
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
