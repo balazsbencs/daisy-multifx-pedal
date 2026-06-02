@@ -44,7 +44,6 @@ constexpr uint8_t CC_HOLD        = 65;  // reverb hold toggle
 
 // Display
 constexpr uint32_t DISPLAY_UPDATE_MS  = 33;   // ~30fps
-constexpr int      CPU_AVERAGE_FRAMES = 1000u / DISPLAY_UPDATE_MS;  // ~1s averaging window
 
 // Tap tempo
 constexpr int      TAP_MAX_TAPS   = 4;
