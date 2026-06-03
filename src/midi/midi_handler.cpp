@@ -128,6 +128,11 @@ void MidiHandlerPedal::HandleSysEx(const uint8_t* data, size_t len,
             SendAck(cmd, true);
             break;
         }
+        case 0x0Bu: { // GET_LIVE_STATE
+            out.request_live_state = true;
+            SendAck(cmd, true);
+            break;
+        }
         default:
             SendAck(cmd, false);
             break;
@@ -168,6 +173,25 @@ void MidiHandlerPedal::SendAck(uint8_t cmd, bool ok) {
         0xF7u
     };
     usb_.SendMessage(ack, 8u);
+}
+
+void MidiHandlerPedal::SendLiveState(int bank, int slot,
+                                      const MultiPresetSlot& state) {
+    if (!store_) return;
+    constexpr size_t kEncLen = EncodedSize(92);
+    // Frame: F0 7D 82 bank slot encoded[106] F7  (total 112 bytes)
+    static uint8_t buf[1u + 1u + 1u + 1u + 1u + kEncLen + 1u];
+    size_t i = 0;
+    buf[i++] = 0xF0u;
+    buf[i++] = 0x7Du;
+    buf[i++] = 0x82u;
+    buf[i++] = static_cast<uint8_t>(bank);
+    buf[i++] = static_cast<uint8_t>(slot);
+    uint8_t raw[92];
+    memcpy(raw, &state, sizeof(state));
+    i += Encode7bit(raw, sizeof(raw), buf + i);
+    buf[i++] = 0xF7u;
+    usb_.SendMessage(buf, i);
 }
 
 } // namespace pedal
