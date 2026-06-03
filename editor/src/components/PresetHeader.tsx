@@ -24,12 +24,13 @@ interface PresetHeaderProps {
   onSyncAll: () => void;
   onExport: () => void;
   onImport: () => void;
+  syncProgress: number | null;
 }
 
 export function PresetHeader({
   connected, ports, onConnect, onRefresh,
   activePreset, presetName, isDirty, isSaving, saveError, midiError,
-  onNameChange, onSave, onSyncAll, onExport, onImport,
+  onNameChange, onSave, onSyncAll, onExport, onImport, syncProgress,
 }: PresetHeaderProps) {
   const [selectedPort, setSelectedPort] = useState("");
   const [editing,      setEditing]      = useState(false);
@@ -64,6 +65,7 @@ export function PresetHeader({
   };
 
   return (
+    <div className="flex flex-col">
     <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
       {/* Connection */}
       <div className="flex items-center gap-2 flex-shrink-0">
@@ -184,6 +186,15 @@ export function PresetHeader({
           )}
         </div>
       </div>
+    </div>
+    {syncProgress !== null && (
+      <div className="h-0.5 bg-zinc-800 rounded-full mt-1">
+        <div
+          className="h-full bg-cyan-500 rounded-full transition-all"
+          style={{ width: `${syncProgress}%` }}
+        />
+      </div>
+    )}
     </div>
   );
 }

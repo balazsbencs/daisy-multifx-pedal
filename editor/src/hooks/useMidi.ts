@@ -15,6 +15,7 @@ export interface PresetData {
 }
 
 export interface LoadedPresetResult {
+  valid: number;
   modMode: number;
   delayMode: number;
   reverbMode: number;
@@ -25,6 +26,19 @@ export interface LoadedPresetResult {
   name: string;
 }
 
+export interface LiveStateUpdate {
+  bank: number;
+  slot: number;
+  valid: number;
+  modMode: number;
+  delayMode: number;
+  reverbMode: number;
+  modParams: number[];
+  delayParams: number[];
+  reverbParams: number[];
+  fxEnabled: [number, number, number];
+}
+
 interface LoadPending {
   resolve: (result: LoadedPresetResult | null) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -33,6 +47,10 @@ interface LoadPending {
 interface SavePending {
   resolve: (ok: boolean) => void;
   timer: ReturnType<typeof setTimeout>;
+  bank: number;
+  slot: number;
+  name: string;
+  rawData: Uint8Array;
 }
 
 export function useMidi() {
@@ -42,6 +60,8 @@ export function useMidi() {
     Array(100).fill(null)
   );
   const [midiError, setMidiError] = useState<string | null>(null);
+  const [liveState, setLiveState] = useState<LiveStateUpdate | null>(null);
+  const [syncProgress, setSyncProgress] = useState<number | null>(null);
 
   const ccThrottle      = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const errorTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,8 +123,8 @@ export function useMidi() {
     });
   }, [reportError]);
 
-  const getAllPresets = useCallback(() => {
-    invoke("get_all_presets").catch((e) => {
+  const syncAllPresets = useCallback(() => {
+    invoke("sync_all_presets").catch((e) => {
       reportError(`Sync failed: ${e}`);
     });
   }, [reportError]);
@@ -132,7 +152,7 @@ export function useMidi() {
           savePending.current = null;
           resolve(false);
         }, 2000);
-        savePending.current = { resolve, timer };
+        savePending.current = { resolve, timer, bank, slot, name, rawData };
         invoke("put_preset", {
           bank, slot, name, rawData: Array.from(rawData),
         }).catch(() => {
@@ -185,6 +205,7 @@ export function useMidi() {
         const encoded   = msg.slice(17, msg.length - 1);
         const rawData   = decode7bit(encoded);
         const idx       = bank * 10 + slot;
+        presetsRef.current[idx] = { bank, slot, name, rawData };
         setPresets((prev) => {
           const next = [...prev];
           next[idx]  = { bank, slot, name, rawData };
@@ -197,19 +218,41 @@ export function useMidi() {
           loadPending.current.delete(key);
           pending.resolve(toResult(parsePresetSlot(rawData), name));
         }
+      } else if (cmd === 0x82) {
+        if (msg.length < 7) return;
+        const bank    = msg[3];
+        const slot    = msg[4];
+        const rawData = decode7bit(msg.slice(5, msg.length - 1));
+        const parsed  = parsePresetSlot(rawData);
+        setLiveState({ bank, slot, ...parsed });
       } else if (cmd === 0x83) {
         if (msg.length < 6) return;
         const originalCmd = msg[3];
         const ok          = msg[4] === 0x00;
         if (originalCmd === 0x02 && savePending.current) {
           clearTimeout(savePending.current.timer);
-          const { resolve } = savePending.current;
+          const { resolve, bank, slot, name, rawData } = savePending.current;
           savePending.current = null;
+          if (ok) {
+            const updated: PresetData = { bank, slot, name, rawData };
+            presetsRef.current[bank * 10 + slot] = updated;
+            setPresets((prev) => {
+              const next = [...prev];
+              next[bank * 10 + slot] = updated;
+              return next;
+            });
+          }
           resolve(ok);
         }
       }
     });
     return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
+  useEffect(() => {
+    const u1 = listen<number>("midi-sync-progress", (e) => setSyncProgress(e.payload));
+    const u2 = listen<void>("midi-sync-done",       () => setSyncProgress(null));
+    return () => { u1.then((f) => f()); u2.then((f) => f()); };
   }, []);
 
   // Auto-update port list; auto-reconnect if connected port reappears (e.g. after firmware flash).
@@ -239,14 +282,17 @@ export function useMidi() {
     ports,
     connected,
     presets,
+    setPresets,
     midiError,
+    liveState,
+    syncProgress,
     refreshPorts,
     connect,
     reportError,
     sendCC,
     setMode,
     setFxEnabled,
-    getAllPresets,
+    syncAllPresets,
     putPreset,
     savePreset,
     loadPreset,
@@ -254,7 +300,10 @@ export function useMidi() {
 }
 
 function toResult(parsed: ParsedPreset, name: string): LoadedPresetResult {
-  return { ...parsed, name };
+  return { valid: parsed.valid, modMode: parsed.modMode, delayMode: parsed.delayMode,
+           reverbMode: parsed.reverbMode, modParams: parsed.modParams,
+           delayParams: parsed.delayParams, reverbParams: parsed.reverbParams,
+           fxEnabled: parsed.fxEnabled, name };
 }
 
 function decode7bit(input: Uint8Array): Uint8Array {

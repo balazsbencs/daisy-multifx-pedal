@@ -3,7 +3,7 @@ import { StageCard }     from "./components/StageCard";
 import { PresetBrowser } from "./components/PresetBrowser";
 import { PresetHeader }  from "./components/PresetHeader";
 import { ExportDialog }  from "./components/ExportDialog";
-import { useMidi, PresetData, LoadedPresetResult } from "./hooks/useMidi";
+import { useMidi, PresetData, LoadedPresetResult, LiveStateUpdate } from "./hooks/useMidi";
 import { buildRawData }  from "./lib/presetCodec";
 
 const DEFAULT_PARAMS  = Array(7).fill(0.5) as number[];
@@ -36,10 +36,29 @@ export default function App() {
 
   useEffect(() => { midi.refreshPorts(); }, []);
 
+  useEffect(() => {
+    if (!midi.liveState) return;
+    const ls = midi.liveState as LiveStateUpdate;
+    setModMode(ls.modMode);
+    setDelayMode(ls.delayMode);
+    setReverbMode(ls.reverbMode);
+    setModParams([...ls.modParams]);
+    setDelayParams([...ls.delayParams]);
+    setReverbParams([...ls.reverbParams]);
+    setFxEnabled(ls.fxEnabled.map((v) => v !== 0) as [boolean, boolean, boolean]);
+    setActivePreset({ bank: ls.bank, slot: ls.slot });
+    const name = midi.presets[ls.bank * 10 + ls.slot]?.name ?? "";
+    setLoadedSnapshot({ valid: ls.valid, modMode: ls.modMode, delayMode: ls.delayMode,
+      reverbMode: ls.reverbMode, modParams: [...ls.modParams], delayParams: [...ls.delayParams],
+      reverbParams: [...ls.reverbParams], fxEnabled: ls.fxEnabled, name });
+    setPresetName(name);
+    setSaveError(null);
+  }, [midi.liveState]);
+
   const isDirty =
     activePreset !== null &&
-    loadedSnapshot !== null &&
-    (presetName !== loadedSnapshot.name ||
+    (loadedSnapshot === null ||
+      presetName !== loadedSnapshot.name ||
       modMode    !== loadedSnapshot.modMode    ||
       delayMode  !== loadedSnapshot.delayMode  ||
       reverbMode !== loadedSnapshot.reverbMode ||
@@ -49,7 +68,10 @@ export default function App() {
       fxEnabled.some((v, i) => v !== (loadedSnapshot.fxEnabled[i] !== 0)));
 
   const handleConnect = useCallback(async (portName: string) => {
-    try { await midi.connect(portName); }
+    try {
+      await midi.connect(portName);
+      midi.syncAllPresets();
+    }
     catch (e) { midi.reportError(`Connect failed: ${e}`); }
   }, [midi]);
 
@@ -92,27 +114,34 @@ export default function App() {
     async (bank: number, slot: number) => {
       const result = await midi.loadPreset(bank, slot);
       if (!result) return;
-      setModMode(result.modMode);
-      setDelayMode(result.delayMode);
-      setReverbMode(result.reverbMode);
-      setModParams([...result.modParams]);
-      setDelayParams([...result.delayParams]);
-      setReverbParams([...result.reverbParams]);
-      setFxEnabled(result.fxEnabled.map(v => v !== 0) as [boolean, boolean, boolean]);
-      setPresetName(result.name);
       setActivePreset({ bank, slot });
-      setLoadedSnapshot({ ...result });
       setSaveError(null);
+      if (result.valid === 0) {
+        // Empty slot — keep current knob state, anchor the slot for saving
+        setLoadedSnapshot(null);
+        setPresetName("");
+      } else {
+        setModMode(result.modMode);
+        setDelayMode(result.delayMode);
+        setReverbMode(result.reverbMode);
+        setModParams([...result.modParams]);
+        setDelayParams([...result.delayParams]);
+        setReverbParams([...result.reverbParams]);
+        setFxEnabled(result.fxEnabled.map(v => v !== 0) as [boolean, boolean, boolean]);
+        setPresetName(result.name);
+        setLoadedSnapshot({ ...result });
+      }
     },
     [midi]
   );
 
   const handleSave = useCallback(async () => {
-    if (!activePreset || !loadedSnapshot) return;
+    if (!activePreset) return;
     setIsSaving(true);
     setSaveError(null);
     const fxRaw = fxEnabled.map(v => v ? 1 : 0) as [number, number, number];
     const rawData = buildRawData({
+      valid: 1,
       modMode,
       delayMode,
       reverbMode,
@@ -127,6 +156,7 @@ export default function App() {
     setIsSaving(false);
     if (ok) {
       setLoadedSnapshot({
+        valid: 1,
         modMode, delayMode, reverbMode,
         modParams:    [...modParams],
         delayParams:  [...delayParams],
@@ -142,10 +172,13 @@ export default function App() {
 
   const handleImportDone = useCallback(
     (imported: (PresetData | null)[]) => {
+      const next = [...midi.presets];
       imported.forEach((p) => {
         if (!p) return;
+        next[p.bank * 10 + p.slot] = p;
         midi.putPreset(p.bank, p.slot, p.name, p.rawData);
       });
+      midi.setPresets(next);
     },
     [midi]
   );
@@ -165,7 +198,8 @@ export default function App() {
         midiError={midi.midiError}
         onNameChange={setPresetName}
         onSave={handleSave}
-        onSyncAll={midi.getAllPresets}
+        onSyncAll={midi.syncAllPresets}
+        syncProgress={midi.syncProgress}
         onExport={() => setExportOpen(true)}
         onImport={() => setExportOpen(true)}
       />
