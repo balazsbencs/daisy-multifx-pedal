@@ -29,6 +29,8 @@ struct MultiMidiState {
     bool fx_enable_change = false; // SET_FX_ENABLED received
     int  fx_enable_stage  = 0;
     bool fx_enable_val    = false;
+
+    bool request_live_state = false; // GET_LIVE_STATE (0x0B) received
 };
 
 class MidiHandlerPedal {
@@ -46,6 +48,7 @@ private:
     void HandleSysEx(const uint8_t* data, size_t len, MultiMidiState& out);
     void SendPresetData(int bank, int slot);
     void SendAck(uint8_t cmd, bool ok);
+    void SendLiveState(int bank, int slot, const MultiPresetSlot& state);
 };
 
 } // namespace pedal
