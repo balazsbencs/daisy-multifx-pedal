@@ -1,4 +1,5 @@
 export interface ParsedPreset {
+  valid: number;
   modMode: number;
   delayMode: number;
   reverbMode: number;
@@ -17,6 +18,7 @@ function readFloats(view: DataView, offset: number, count: number): number[] {
 export function parsePresetSlot(raw: Uint8Array): ParsedPreset {
   const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
   return {
+    valid:      raw[0],
     modMode:    raw[1],
     delayMode:  raw[2],
     reverbMode: raw[3],
