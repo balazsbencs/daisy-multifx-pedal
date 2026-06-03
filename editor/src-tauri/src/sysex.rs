@@ -67,6 +67,23 @@ pub fn build_cc(channel: u8, cc: u8, value: u8) -> Vec<u8> {
     vec![0xB0 | (channel & 0x0F), cc, value & 0x7F]
 }
 
+pub fn build_get_live_state() -> Vec<u8> {
+    vec![0xF0, 0x7D, 0x0B, 0xF7]
+}
+
+/// Parse a LIVE_STATE response (cmd 0x82).
+/// Returns (bank, slot, raw_92_bytes) or None if malformed.
+pub fn parse_live_state(frame: &[u8]) -> Option<(u8, u8, Vec<u8>)> {
+    // frame: F0 7D 82 bank slot encoded[106] F7
+    if frame.len() < 5 || frame[0] != 0xF0 || frame[1] != 0x7D || frame[2] != 0x82 {
+        return None;
+    }
+    let bank = frame[3];
+    let slot = frame[4];
+    let raw = decode_7bit(&frame[5..frame.len().saturating_sub(1)]);
+    Some((bank, slot, raw))
+}
+
 /// Parse a PRESET_DATA response (cmd 0x81).
 /// Returns (bank, slot, name, raw_92_bytes) or None if malformed.
 pub fn parse_preset_data(frame: &[u8]) -> Option<(u8, u8, String, Vec<u8>)> {
@@ -103,5 +120,32 @@ mod tests {
         assert!(encoded.iter().all(|&b| b < 0x80), "all output bytes must be < 0x80");
         let decoded = decode_7bit(&encoded);
         assert_eq!(decoded, input);
+    }
+
+    #[test]
+    fn get_live_state_frame() {
+        let frame = build_get_live_state();
+        assert_eq!(frame, vec![0xF0, 0x7D, 0x0B, 0xF7]);
+    }
+
+    #[test]
+    fn live_state_round_trip() {
+        let raw: Vec<u8> = (0u8..92).collect();
+        let encoded = encode_7bit(&raw);
+        let mut frame = vec![0xF0, 0x7D, 0x82, 3u8, 7u8];
+        frame.extend_from_slice(&encoded);
+        frame.push(0xF7);
+        let result = parse_live_state(&frame).expect("should parse");
+        assert_eq!(result.0, 3);
+        assert_eq!(result.1, 7);
+        assert_eq!(result.2, raw);
+    }
+
+    #[test]
+    fn parse_live_state_rejects_wrong_cmd() {
+        let mut frame = vec![0xF0, 0x7D, 0x81, 0, 0];
+        frame.extend_from_slice(&encode_7bit(&[0u8; 92]));
+        frame.push(0xF7);
+        assert!(parse_live_state(&frame).is_none());
     }
 }
