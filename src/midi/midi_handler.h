@@ -38,6 +38,7 @@ public:
     // store must outlive this object.
     void Init(daisy::DaisySeed& hw, QspiPresetStore& store);
     void Poll(MultiMidiState& out);
+    void SendLiveState(int bank, int slot, const MultiPresetSlot& state);
 
 private:
     daisy::MidiUartHandler uart_;
@@ -48,7 +49,6 @@ private:
     void HandleSysEx(const uint8_t* data, size_t len, MultiMidiState& out);
     void SendPresetData(int bank, int slot);
     void SendAck(uint8_t cmd, bool ok);
-    void SendLiveState(int bank, int slot, const MultiPresetSlot& state);
 };
 
 } // namespace pedal
