@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use crate::midi::{self, MidiState};
 use crate::sysex;
 
@@ -51,8 +51,27 @@ pub fn put_preset(
 }
 
 #[tauri::command]
-pub fn get_all_presets(state: State<SharedMidi>) -> Result<(), String> {
-    midi::send_raw(&state, &sysex::build_get_all())
+pub fn sync_all_presets(state: State<SharedMidi>, app: AppHandle) -> Result<(), String> {
+    let state = Arc::clone(&state);
+    std::thread::spawn(move || {
+        'outer: for bank in 0u8..10 {
+            for slot in 0u8..10 {
+                let idx = bank * 10 + slot + 1;
+                if midi::send_raw(&state, &sysex::build_get_preset(bank, slot)).is_err() {
+                    break 'outer;
+                }
+                let _ = app.emit("midi-sync-progress", idx as u32);
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+        }
+        let _ = app.emit("midi-sync-done", ());
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_live_state(state: State<SharedMidi>) -> Result<(), String> {
+    midi::send_raw(&state, &sysex::build_get_live_state())
 }
 
 #[tauri::command]
