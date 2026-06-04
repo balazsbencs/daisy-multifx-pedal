@@ -278,22 +278,12 @@ The handler decodes the byte but the main loop currently ignores it
 
 ## Presets
 
-The firmware ships with a persistent storage layer in QSPI flash for
-**8 preset slots** (slot label "P1".."P8" shown top-right of the
-display). Each slot stores:
+The pedal has **100 preset slots** (10 banks × 10 slots). The current
+bank and slot are shown in a large label at the bottom of the display
+(`B3 P07`, etc.).
 
-- The selected mode for each of the three stages
-- All seven parameters per stage (21 floats total)
-- A `valid` flag
-
-The storage layer is initialised at boot and the slot label is rendered,
-but **save / load UI bindings are not yet wired in this firmware
-revision** — the slot stays at P1 and existing slots cannot yet be
-recalled from the front panel. This is the next planned UI feature.
-
-If you want to use presets today, drive `MultiPresetManager::SaveSlot`
-and `LoadSlot` from custom code, or wait for the encoder long-press
-binding.
+See **[PRESETS.md](PRESETS.md)** for the full guide covering Browse mode,
+saving, loading, live-state auto-save, and MIDI/SysEx control.
 
 ---
 
@@ -341,8 +331,9 @@ P0..P3          turn   → edit parameter
 FX FOOTSWITCH   stomp  → toggle stage bypass
 
 TAP FOOTSWITCH  tap    → tap tempo
-                hold   → engage reverb hold (long press > 500ms)
-                tap    → release hold (also taps)
+                hold   → engage reverb hold (> 500 ms)
+                tap    → release hold (also counts as a tap)
+                hold ≥ 1 s → enter Preset Browse mode (see PRESETS.md)
 
 MIDI            USB    → always on
                 CC 14+ → params (mod / delay / reverb in 7-CC blocks)

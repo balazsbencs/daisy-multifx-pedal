@@ -65,7 +65,7 @@ bool QspiPresetStore::LoadSlot(int bank, int slot, MultiPresetSlot& out) const {
     const uint32_t offset_in_sector = static_cast<uint32_t>(idx % kSlotsPerSector)
                                       * sizeof(MultiPresetSlot);
     const auto* ptr = reinterpret_cast<const MultiPresetSlot*>(sector_addr + offset_in_sector);
-    if (!ptr->valid) return false;
+    if (ptr->valid != 1u) return false;
     memcpy(&out, ptr, sizeof(out));
     return true;
 }
@@ -102,7 +102,7 @@ bool QspiPresetStore::LoadLiveState(MultiPresetSlot& out) const {
     if (!initialized_) return false;
     const auto* ptr = reinterpret_cast<const MultiPresetSlot*>(
         kQspiBase + kLiveOffset);
-    if (!ptr->valid) return false;
+    if (ptr->valid != 1u) return false;
     memcpy(&out, ptr, sizeof(out));
     return true;
 }

@@ -62,9 +62,7 @@ static int        browse_bank         = 0;
 static int        browse_slot         = 0;
 static bool       tap_preset_pending  = false;
 static uint32_t   tap_hold_start_ms   = 0;
-static uint32_t   last_browse_ms      = 0;
 static constexpr uint32_t kPresetEntryHoldMs      = 1000u;
-static constexpr uint32_t kPresetInactivityMs     = 3000u;
 static constexpr uint32_t kPresetLedBlinkPeriodMs = 500u;
 
 // Status LEDs (one per effect footswitch)
@@ -233,6 +231,8 @@ int main() {
     display.Init();
     diag(0,0,1);
     preset_store.Init(hw.qspi);
+    preset_bank = preset_store.GetActiveBank();
+    preset_slot = preset_store.GetActiveSlot();
     diag(1,0,1);
 
     // ── Restore live state on boot ─────────────────────────────────────────
@@ -284,13 +284,18 @@ int main() {
             }
         } else { // PresetMode::Browse
             // fx[0]=MOD → prev, fx[1]=DELAY → save, fx[2]=REVERB → next
+            // Each navigation press is self-confirming: loads + marks active immediately.
             if (ctrl.fx_pressed[0]) {
                 if (--browse_slot < 0) {
                     browse_slot = PRESET_SLOTS_PER_BANK - 1;
                     browse_bank = (browse_bank - 1 + PRESET_BANK_COUNT) % PRESET_BANK_COUNT;
                 }
                 LoadPreset(browse_bank, browse_slot);
-                last_browse_ms = now;
+                preset_store.SetActive(browse_bank, browse_slot);
+                preset_bank      = browse_bank;
+                preset_slot      = browse_slot;
+                live_state_dirty = true;
+                last_change_ms   = now;
             }
             if (ctrl.fx_pressed[2]) {
                 if (++browse_slot >= PRESET_SLOTS_PER_BANK) {
@@ -298,24 +303,20 @@ int main() {
                     browse_bank = (browse_bank + 1) % PRESET_BANK_COUNT;
                 }
                 LoadPreset(browse_bank, browse_slot);
-                last_browse_ms = now;
+                preset_store.SetActive(browse_bank, browse_slot);
+                preset_bank      = browse_bank;
+                preset_slot      = browse_slot;
+                live_state_dirty = true;
+                last_change_ms   = now;
             }
             if (ctrl.fx_pressed[1]) {
                 const MultiPresetSlot snap = SnapshotLiveState();
                 preset_store.SaveSlot(browse_bank, browse_slot, snap);
-                last_browse_ms = now;
             }
 
             // Blink all three LEDs at 2 Hz.
             const bool blink_on = ((now % kPresetLedBlinkPeriodMs) < (kPresetLedBlinkPeriodMs / 2u));
             for (int i = 0; i < 3; ++i) led_fx[i].Write(blink_on);
-
-            // Auto-exit after inactivity.
-            if ((now - last_browse_ms) >= kPresetInactivityMs) {
-                LoadPreset(preset_store.GetActiveBank(), preset_store.GetActiveSlot());
-                preset_mode = PresetMode::Normal;
-                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
-            }
         }
 
         // ── Mode encoder hold tracking ───────────────────────────────────────
@@ -406,7 +407,6 @@ int main() {
                     browse_bank        = preset_bank;
                     browse_slot        = preset_slot;
                     preset_mode        = PresetMode::Browse;
-                    last_browse_ms     = now;
                     tap_preset_pending = false;
                 } else if (hold_active && ctrl.tap_held_ms <= 500) {
                     hold_active = false;
@@ -415,10 +415,9 @@ int main() {
             }
         } else { // PresetMode::Browse
             if (ctrl.tap_pressed) {
-                preset_store.SetActive(browse_bank, browse_slot);
-                preset_bank = browse_bank;
-                preset_slot = browse_slot;
-                preset_mode = PresetMode::Normal;
+                preset_mode        = PresetMode::Normal;
+                tap_hold_start_ms  = now;   // restart timer so re-entry needs a fresh 1 s hold
+                tap_preset_pending = false;
                 for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
             }
         }
@@ -480,12 +479,16 @@ int main() {
         // ── Display ────────────────────────────────────────────────────────────
         if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
             display_last_ms = now;
+            const bool in_browse = (preset_mode == PresetMode::Browse);
+            const int disp_preset = in_browse
+                ? (browse_bank * PRESET_SLOTS_PER_BANK + browse_slot)
+                : (preset_bank * PRESET_SLOTS_PER_BANK + preset_slot);
             display.Update(active_page, shift,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
                            fx_enabled, hold_active,
-                           preset_bank * PRESET_SLOTS_PER_BANK + preset_slot,
-                           PresetUiEvent::None, now);
+                           disp_preset, PresetUiEvent::None,
+                           in_browse, now);
         }
 
         // ── Live state auto-save (debounced) ──────────────────────────────────
