@@ -62,13 +62,14 @@ void DisplayManager::Update(int           active_page,
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event,
+                            bool          in_browse,
                             uint32_t      now_ms) {
     (void)now_ms;
     if (driver_.IsBusy()) return;
 
     Render(active_page, shift, mod_mode, delay_mode, reverb_mode,
            mod_params, delay_params, reverb_params,
-           fx_enabled, hold_active, preset_slot, preset_event);
+           fx_enabled, hold_active, preset_slot, preset_event, in_browse);
 
     driver_.StartDmaTransfer(DisplayRenderer::FrameBuffer(),
                              DisplayRenderer::FrameBufferBytes(),
@@ -88,7 +89,8 @@ void DisplayManager::Render(int           active_page,
                             const bool    fx_enabled[3],
                             bool          hold_active,
                             int           preset_slot,
-                            PresetUiEvent preset_event) {
+                            PresetUiEvent preset_event,
+                            bool          in_browse) {
     if (active_page < 0 || active_page > 2) return;
     const uint16_t accent = kPageAccent[active_page];
     DisplayRenderer::Clear(kColorBlack);
@@ -224,23 +226,8 @@ void DisplayManager::Render(int           active_page,
         }
     }
 
-    // ── Status row ────────────────────────────────────────────────────────────
-    if (hold_active) {
-        DisplayRenderer::DrawText(layout::HOLD_X, layout::STATUS_Y,
-                                  "HOLD", kColorRed, kColorBlack, Font_6x8);
-    }
-    if (preset_event == PresetUiEvent::Saved) {
-        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::STATUS_Y,
-                                  "SAVED", kColorWhite, kColorBlack, Font_6x8);
-    } else if (preset_event == PresetUiEvent::Loaded) {
-        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::STATUS_Y,
-                                  "LOAD", kColorWhite, kColorBlack, Font_6x8);
-    } else if (preset_event == PresetUiEvent::Error) {
-        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::STATUS_Y,
-                                  "ERR", kColorRed, kColorBlack, Font_6x8);
-    }
-
-    // Preset bank and slot — always shown, e.g. "B3 P07"
+    // ── Preset indicator row (y=232..275) ────────────────────────────────────
+    // Bank/slot in large font, HOLD and events in small font at the bottom.
     {
         const int disp_bank = preset_slot / PRESET_SLOTS_PER_BANK;
         const int disp_slot = preset_slot % PRESET_SLOTS_PER_BANK;
@@ -252,14 +239,28 @@ void DisplayManager::Render(int           active_page,
         id_buf[4] = static_cast<char>('0' + disp_slot / 10);
         id_buf[5] = static_cast<char>('0' + disp_slot % 10);
         id_buf[6] = '\0';
-        DisplayRenderer::DrawText(layout::PRESET_ID_X, layout::STATUS_Y,
-                                  id_buf, kColorWhite, kColorBlack, Font_6x8);
+        DisplayRenderer::DrawText(layout::PRESET_ID_X, layout::PRESET_ID_Y,
+                                  id_buf, kColorWhite, kColorBlack, Font_11x18);
+    }
+    if (hold_active) {
+        DisplayRenderer::DrawText(layout::HOLD_X, layout::HOLD_Y,
+                                  "HOLD", kColorRed, kColorBlack, Font_6x8);
+    }
+    if (preset_event == PresetUiEvent::Saved) {
+        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::PRESET_EVT_Y,
+                                  "SAVED", kColorWhite, kColorBlack, Font_6x8);
+    } else if (preset_event == PresetUiEvent::Loaded) {
+        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::PRESET_EVT_Y,
+                                  "LOAD", kColorWhite, kColorBlack, Font_6x8);
+    } else if (preset_event == PresetUiEvent::Error) {
+        DisplayRenderer::DrawText(layout::PRESET_EVT_X, layout::PRESET_EVT_Y,
+                                  "ERR", kColorRed, kColorBlack, Font_6x8);
     }
 
     // ── Chain strip (y=292..319) ──────────────────────────────────────────────
     // Three sections: [MOD: <name>] > [DLY: <name>] > [REV: <name>]
     // Disabled sections render in kColorDim with a strikethrough across the name.
-    static const char* kChainTags[3] = { "MOD", "DLY", "REV" };
+    static const char* kChainTags[3] = { "MOD", "DELAY", "REV" };
     const char* chain_names[3] = {
         ModModeName(mod_mode),
         DelayModeName(delay_mode),
@@ -291,6 +292,11 @@ void DisplayManager::Render(int           active_page,
                               ">", kColorWhite, kColorBlack, Font_6x8);
     DisplayRenderer::DrawText(layout::CHAIN_ARR_X2, layout::CHAIN_ARR_Y,
                               ">", kColorWhite, kColorBlack, Font_6x8);
+
+    if (in_browse) {
+        DisplayRenderer::DrawText(layout::BROWSE_IND_X, layout::BROWSE_IND_Y,
+                                  "BROWSE", kColorWhite, kColorBlack, Font_6x8);
+    }
 }
 
 // ── Name tables ───────────────────────────────────────────────────────────────

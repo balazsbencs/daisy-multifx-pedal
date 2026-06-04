@@ -29,6 +29,7 @@ public:
                 bool          hold_active,
                 int           preset_slot,
                 PresetUiEvent preset_event,
+                bool          in_browse,
                 uint32_t      now_ms);
 
 private:
@@ -45,7 +46,8 @@ private:
                 const bool    fx_enabled[3],
                 bool          hold_active,
                 int           preset_slot,
-                PresetUiEvent preset_event);
+                PresetUiEvent preset_event,
+                bool          in_browse);
 
     static const char* ModModeName(ModModeId id);
     static const char* DelayModeName(DelayModeId id);
