@@ -87,6 +87,9 @@ export function useMidi() {
     await invoke("connect_midi", { portName });
     connectedPort.current = portName;
     setConnected(true);
+    // Send after connect_midi returns — by then the midir input thread is running
+    // and the frontend midi-sysex listener (registered at mount) is ready.
+    invoke("get_live_state").catch(() => {});
   }, []);
 
   const sendCC = useCallback(
