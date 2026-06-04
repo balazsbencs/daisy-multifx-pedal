@@ -43,9 +43,6 @@ pub fn connect(
         s.output = Some(conn);
         s.input_active = true;
     }
-    // Prime the editor with current hardware state; firmware replies with 0x82 LIVE_STATE.
-    let _ = send_raw(&state, &crate::sysex::build_get_live_state());
-
     // Input connection (optional — no SysEx responses without it, but CC/mode/sysex
     // sending still works with output-only).
     let mut midi_in = match MidiInput::new("multi-fx-in") {

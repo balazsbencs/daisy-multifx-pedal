@@ -47,10 +47,10 @@ export default function App() {
     setReverbParams([...ls.reverbParams]);
     setFxEnabled(ls.fxEnabled.map((v) => v !== 0) as [boolean, boolean, boolean]);
     setActivePreset({ bank: ls.bank, slot: ls.slot });
+    // Do NOT touch loadedSnapshot here — liveState mirrors hardware state but is not a
+    // "saved" baseline. loadedSnapshot is only set by explicit preset load or save.
+    // Keeping it null means isDirty = true and Save is available immediately after connect.
     const name = midi.presets[ls.bank * 10 + ls.slot]?.name ?? "";
-    setLoadedSnapshot({ valid: ls.valid, modMode: ls.modMode, delayMode: ls.delayMode,
-      reverbMode: ls.reverbMode, modParams: [...ls.modParams], delayParams: [...ls.delayParams],
-      reverbParams: [...ls.reverbParams], fxEnabled: ls.fxEnabled, name });
     setPresetName(name);
     setSaveError(null);
   }, [midi.liveState]);
