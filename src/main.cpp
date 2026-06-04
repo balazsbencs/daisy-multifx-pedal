@@ -268,8 +268,6 @@ int main() {
     for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
 
     static uint32_t display_last_ms  = 0;
-    static float    cpu_accum_       = 0.0f;
-    static int      cpu_accum_count  = 0;
     static bool     mode_hold_consumed  = false;
     static bool     mode_hold_active    = false;
     static uint32_t mode_hold_start_ms  = 0;
@@ -506,13 +504,7 @@ int main() {
         // ── Display ────────────────────────────────────────────────────────────
         if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
             display_last_ms = now;
-            cpu_accum_ += AudioEngine::GetCpuUsage();
-            cpu_accum_count++;
-            if (cpu_accum_count >= CPU_AVERAGE_FRAMES) {
-                display.SetCpuUsage(cpu_accum_ / static_cast<float>(cpu_accum_count));
-                cpu_accum_      = 0.0f;
-                cpu_accum_count = 0;
-            }
+
             const PresetUiEvent ui_event = (browse_saved_ms && (now - browse_saved_ms) < kBrowseSavedDisplayMs)
                                             ? PresetUiEvent::Saved : PresetUiEvent::None;
             display.Update(active_page, shift,
@@ -520,7 +512,7 @@ int main() {
                            buf.mod, buf.delay, buf.reverb,
                            fx_enabled, hold_active,
                            preset_bank * PRESET_SLOTS_PER_BANK + preset_slot,
-                           ui_event, now);
+                           ui_event, preset_mode == PresetMode::Browse, now);
         }
 
         // ── Live state auto-save (debounced) ──────────────────────────────────
