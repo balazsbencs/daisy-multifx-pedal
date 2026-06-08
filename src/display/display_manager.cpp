@@ -308,7 +308,8 @@ const char* DisplayManager::ModModeName(ModModeId id) {
         case ModModeId::Rotary:  return "Rotary";
         case ModModeId::Vibe:    return "Vibe";
         case ModModeId::Phaser:  return "Phaser";
-        case ModModeId::VintTrem: return "VintTrem";
+        case ModModeId::VintTrem:   return "VintTrem";
+        case ModModeId::PolyOctave: return "PolyOct";
         default: return "?";
     }
 }

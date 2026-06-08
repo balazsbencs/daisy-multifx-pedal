@@ -10,13 +10,14 @@ enum class ModModeId : uint8_t {
     Vibe        = 3,
     Phaser      = 4,
     VintTrem    = 5,
-    PatternTrem = 6,
-    AutoSwell   = 7,
-    FilterFx    = 8,
-    FormantFx   = 9,
-    Quadrature  = 10,
-    Destroyer   = 11,
-    COUNT       = 12,
+    PolyOctave  = 6,
+    PatternTrem = 7,
+    AutoSwell   = 8,
+    FilterFx    = 9,
+    FormantFx   = 10,
+    Quadrature  = 11,
+    Destroyer   = 12,
+    COUNT       = 13,
 };
 
 } // namespace pedal

@@ -41,6 +41,7 @@ CPP_SOURCES = \
     src/modes/vibe_mode.cpp \
     src/modes/phaser_mode.cpp \
     src/modes/vintage_trem_mode.cpp \
+    src/modes/poly_octave_mode.cpp \
     src/modes/mod_mode_registry.cpp \
     \
     src/modes/room_reverb.cpp \
@@ -72,6 +73,11 @@ DAISYSP_DIR  = third_party/DaisySP
 
 # 'src' is added so that all #include "..." paths resolve relative to src/ root
 C_INCLUDES += -Isrc
+C_INCLUDES += -Ithird_party/q/q_lib/include
+C_INCLUDES += -Ithird_party/q/infra/include
+
+# C++20 required for std::bit_cast, std::numbers, std::span (used by poly-octave DSP).
+CPP_STANDARD = -std=gnu++20
 
 # Size-optimised + LTO: deduplicates inlined param/DSP helpers across 14 mode TUs
 OPT = -Os -flto

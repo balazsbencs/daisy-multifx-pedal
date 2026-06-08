@@ -16,7 +16,7 @@ constexpr size_t MAX_MOD_DELAY_SAMPLES = static_cast<size_t>(SAMPLE_RATE * 0.025
 
 // Number of modes per effect slot
 constexpr int NUM_DELAY_MODES  = 10;
-constexpr int NUM_MOD_MODES    = 6;
+constexpr int NUM_MOD_MODES    = 7;
 constexpr int NUM_REVERB_MODES = 12;
 
 // Parameters per effect slot
