@@ -78,6 +78,7 @@ target_sources(DaisyMultiFx PRIVATE
     ../src/modes/vibe_mode.cpp
     ../src/modes/phaser_mode.cpp
     ../src/modes/vintage_trem_mode.cpp
+    ../src/modes/poly_octave_mode.cpp
     ../src/modes/mod_mode_registry.cpp
 
     ../src/modes/room_reverb.cpp
@@ -98,6 +99,8 @@ target_sources(DaisyMultiFx PRIVATE
 target_include_directories(DaisyMultiFx PRIVATE
     Source
     ../src
+    ../third_party/q/q_lib/include
+    ../third_party/q/infra/include
 )
 
 target_compile_definitions(DaisyMultiFx PRIVATE

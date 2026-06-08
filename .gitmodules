@@ -4,3 +4,6 @@
 [submodule "third_party/DaisySP"]
 	path = third_party/DaisySP
 	url = https://github.com/electro-smith/DaisySP.git
+[submodule "third_party/q"]
+	path = third_party/q
+	url = https://github.com/schult/q.git

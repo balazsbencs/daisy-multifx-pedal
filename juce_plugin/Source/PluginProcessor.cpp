@@ -404,7 +404,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DaisyMultiFxAudioProcessor::
 
     // Mode choices
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("modeMod", 1), "Modulation Mode",
-        juce::StringArray{"Chorus", "Flanger", "Rotary", "Vibe", "Phaser", "VintTrem"}, 0));
+        juce::StringArray{"Chorus", "Flanger", "Rotary", "Vibe", "Phaser", "VintTrem", "PolyOctave"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("modeDelay", 1), "Delay Mode",
         juce::StringArray{"Digital", "Tape", "Dual", "FiltDly", "Lofi", "BBD", "Duck", "Pattern", "SwellDly", "Trem"}, 1)); // Default is Tape
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("modeReverb", 1), "Reverb Mode",

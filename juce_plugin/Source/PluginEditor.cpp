@@ -291,7 +291,7 @@ DaisyMultiFxAudioProcessorEditor::DaisyMultiFxAudioProcessorEditor (DaisyMultiFx
         {"modTone", "TONE"}, {"modP1", "P1"}, {"modP2", "P2"}, {"modLevel", "LEVEL"}
     };
     setupSection(modSection_, "MODULATION", modColor,
-                 juce::StringArray{"Chorus", "Flanger", "Rotary", "Vibe", "Phaser", "Vintage Trem"},
+                 juce::StringArray{"Chorus", "Flanger", "Rotary", "Vibe", "Phaser", "Vintage Trem", "Poly Octave"},
                  "bypassMod", "modeMod", modParams, true, "modTempoSync", "modNoteDiv");
 
     // ── Build Delay Section ──────────────────────────────────────────────────
@@ -557,16 +557,17 @@ bool DaisyMultiFxAudioProcessorEditor::updateDynamicUi() {
         lastModMode_ = curModMode;
         
         struct ModAlgoDesc { const char* p1; const char* p2; };
-        static const ModAlgoDesc kModAlgoDesc[6] = {
-            {"DELAY",  "TYPE"},    // Chorus
-            {"REGEN",  "TYPE"},    // Flanger
-            {"DRIVE",  "SPEED"},   // Rotary
-            {"REGEN",  "P2"},      // Vibe
-            {"REGEN",  "STAGES"},  // Phaser
-            {"P1",     "TYPE"},    // VintTrem
+        static const ModAlgoDesc kModAlgoDesc[7] = {
+            {"DELAY",   "TYPE"},    // Chorus
+            {"REGEN",   "TYPE"},    // Flanger
+            {"DRIVE",   "SPEED"},   // Rotary
+            {"REGEN",   "P2"},      // Vibe
+            {"REGEN",   "STAGES"},  // Phaser
+            {"P1",      "TYPE"},    // VintTrem
+            {"OCT UP",  "OCT DWN"}, // PolyOctave
         };
 
-        if (curModMode >= 0 && curModMode < 6) {
+        if (curModMode >= 0 && curModMode < 7) {
             modSection_.params[4]->label.setText(kModAlgoDesc[curModMode].p1, juce::dontSendNotification);
             modSection_.params[5]->label.setText(kModAlgoDesc[curModMode].p2, juce::dontSendNotification);
         }
