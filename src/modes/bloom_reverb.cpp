@@ -9,8 +9,13 @@ namespace pedal {
 namespace {
 
 static float DSY_SDRAM_BSS buf_pre_delay[24000];
+<<<<<<< HEAD
 static float DSY_SDRAM_BSS buf_diff0[Diffuser::kDelays[0] + 1];
 static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
+=======
+static float DSY_SDRAM_BSS buf_diff0[143];
+static float DSY_SDRAM_BSS buf_diff1[108];
+>>>>>>> 5c99291 (fix: diffuser exposes kDelays as public constexpr for single source of truth; align g defaults)
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
 static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 static float DSY_SDRAM_BSS buf_fdn0[2904];
@@ -27,7 +32,11 @@ void BloomReverb::Init() {
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
     };
+<<<<<<< HEAD
     const size_t diff_sizes[Diffuser::STAGES] = { Diffuser::kDelays[0] + 1, Diffuser::kDelays[1] + 1, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
+=======
+    const size_t diff_sizes[Diffuser::STAGES] = { 143, 108, Diffuser::kDelays[2] + 1, Diffuser::kDelays[3] + 1 };
+>>>>>>> 5c99291 (fix: diffuser exposes kDelays as public constexpr for single source of truth; align g defaults)
     diffuser_.Init(diff_bufs, diff_sizes);
     diffuser_.SetDiffusion(0.65f);
 
