@@ -9,17 +9,17 @@ and dedicated bypass footswitches per stage.
     ┌─────────┐  ┌─────────┐   ┌──────────┐
 IN ▶│   MOD   │▶─│  DELAY  │▶──│  REVERB  │▶ OUT
     └─────────┘  └─────────┘   └──────────┘
-         ▲            ▲             ▲
-         └─ 6 modes ──┴── 4 modes ──┴── 4 modes ──
+         ▲            ▲              ▲
+         └─ 6 modes ──┴── 10 modes ──┴── 12 modes ──
 ```
 
-- 14 effect algorithms total (6 modulation / 4 delay / 4 reverb)
+- 28 effect algorithms total (6 modulation / 10 delay / 12 reverb)
 - 7 parameters per stage, accessed via 4 encoders + shift
 - Tap tempo footswitch with MIDI-clock priority arbitration
 - Stereo audio path, mono input → stereo wet output
 - MIDI in over USB and 5-pin DIN (UART)
-- Preset infrastructure in QSPI flash (8 slots)
-- Long-press tap → infinite reverb hold (freeze)
+- 100 presets in QSPI flash (10 banks × 10 slots) with live-state auto-save
+- Companion Tauri desktop app for preset management over USB MIDI SysEx
 
 ---
 
@@ -32,12 +32,14 @@ src/
 ├── hardware/                    ← controls (encoders, switches)
 ├── audio/                       ← audio_engine: 3-stage chain, mix coeffs
 ├── dsp/                         ← shared DSP blocks (delay line, LFO, FDN, filters, …)
-├── modes/                       ← 14 effect algorithms + per-slot registries
+├── modes/                       ← 28 effect algorithms + per-stage registries
 ├── params/                      ← typed param sets, ranges, mode→range maps
 ├── midi/                        ← UART + USB MIDI handler
 ├── tempo/                       ← tap-tempo + MIDI-clock arbitration
-├── presets/                     ← QSPI-backed persistent storage (8 slots)
+├── presets/                     ← QSPI-backed storage (100 presets + live state)
 └── display/                     ← ST7789 SPI driver, renderer, layout, manager
+
+editor/                          ← Tauri desktop app (preset editor, USB MIDI SysEx sync)
 
 third_party/
 ├── libDaisy/                    ← BSP + HAL
@@ -46,6 +48,7 @@ third_party/
 
 For day-to-day operation, see [docs/USER_MANUAL.md](docs/USER_MANUAL.md).
 For wiring and the pin map, see [docs/HARDWARE.md](docs/HARDWARE.md).
+For preset storage and the SysEx protocol, see [docs/PRESETS.md](docs/PRESETS.md) and [docs/MIDI_USB.md](docs/MIDI_USB.md).
 
 ---
 
@@ -83,8 +86,8 @@ The pedal expects the [Daisy Bootloader](https://github.com/electro-smith/DaisyB
 to already be present (so `APP_TYPE=BOOT_QSPI` works).  To flash the bootloader
 once, follow Electrosmith's instructions.
 
-To flash the application over USB DFU (Daisy in bootloader mode — hold BOOT,
-press RESET):
+To flash the application over USB DFU, press RESET only (do **not** hold BOOT —
+that enters ROM DFU which cannot write QSPI). Within 2 seconds run:
 
 ```sh
 make program-dfu
@@ -95,6 +98,16 @@ Internally:
 ```sh
 dfu-util -a 0 -s 0x90040000:leave -D build/multi-fx.bin -d ,0483:df11
 ```
+
+---
+
+## Display
+
+The 240×320 ST7789 shows the active stage tab, current mode name, four parameter bars at a time (shift encoder to see the remaining three), and the chain strip at the bottom. The bottom row shows the current preset bank/slot (`B0 P00`–`B9 P09`).
+
+| Normal view | Shift view (params 5–7) |
+|:-----------:|:-----------------------:|
+| ![Normal](docs/images/screen_normal.png) | ![Shifted](docs/images/screen_shifted.png) |
 
 ---
 
