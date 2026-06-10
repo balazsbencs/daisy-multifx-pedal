@@ -22,13 +22,12 @@ void DuckDelay::Init() {
 void DuckDelay::Reset() {
     duck_line.Reset();
     dc_.Init();
-    delay_smooth_ = 0.0f;
+    delay_smooth_ = -1.0f;
     fb_lim_.Reset();
 }
 
 void DuckDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
     filter_.SetKnob(params.filter);
 }
 
@@ -36,8 +35,15 @@ StereoFrame DuckDelay::Process(float input, const ParamSet& params) {
     static constexpr float kDelaySlew = 0.001f;
     static constexpr float kThresh    = 0.10f;
 
-    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
-    const float lfo_val   = lfo_out_;
+    const float target_samps = params.time * SAMPLE_RATE;
+    if (delay_smooth_ < 0.0f) delay_smooth_ = target_samps;
+    {
+        float step = kDelaySlew * (target_samps - delay_smooth_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_ += step;
+    }
+    const float lfo_val   = lfo_.Process();
     float delay_samps     = delay_smooth_ + lfo_val * (params.mod_dep * 15.0f);
     if (delay_samps < 1.0f)
         delay_samps = 1.0f;

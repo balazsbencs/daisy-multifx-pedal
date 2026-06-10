@@ -30,13 +30,15 @@ void DigitalDelay::Reset() {
     digital_line_r.Reset();
     dc_l_.Init();
     dc_r_.Init();
-    delay_smooth_l_ = 0.0f;
-    delay_smooth_r_ = 0.0f;
+    delay_smooth_l_ = -1.0f;
+    delay_smooth_r_ = -1.0f;
     aa_state_l_ = 0.0f;
     aa_state_r_ = 0.0f;
     aa_coef_    = 1.0f;
     fb_lim_l_.Reset();
     fb_lim_r_.Reset();
+    dc_fb_l_.Init();
+    dc_fb_r_.Init();
 }
 
 void DigitalDelay::Prepare(const ParamSet& params) {
@@ -55,8 +57,20 @@ StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
     static constexpr float kDelaySlew = 0.001f;
 
     const float base_samps = params.time * SAMPLE_RATE;
-    delay_smooth_l_ += kDelaySlew * (base_samps - delay_smooth_l_);
-    delay_smooth_r_ += kDelaySlew * (base_samps - delay_smooth_r_);
+    if (delay_smooth_l_ < 0.0f) delay_smooth_l_ = base_samps;
+    if (delay_smooth_r_ < 0.0f) delay_smooth_r_ = base_samps;
+    {
+        float step = kDelaySlew * (base_samps - delay_smooth_l_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_l_ += step;
+    }
+    {
+        float step = kDelaySlew * (base_samps - delay_smooth_r_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_r_ += step;
+    }
 
     const float lfo_val   = lfo_.Process();
     const float mod_samps = params.mod_dep * 30.0f;
@@ -80,8 +94,8 @@ StereoFrame DigitalDelay::Process(float input, const ParamSet& params) {
     wet_l = filter_l_.Process(wet_l);
     wet_r = filter_r_.Process(wet_r);
 
-    const float feedback_l = fb_lim_l_.Process(wet_l * params.repeats);
-    const float feedback_r = fb_lim_r_.Process(wet_r * params.repeats);
+    const float feedback_l = dc_fb_l_.Process(fb_lim_l_.Process(wet_l * params.repeats));
+    const float feedback_r = dc_fb_r_.Process(fb_lim_r_.Process(wet_r * params.repeats));
 
     // Anti-alias LP on write input
     aa_state_l_ += aa_coef_ * ((input + feedback_l) - aa_state_l_);

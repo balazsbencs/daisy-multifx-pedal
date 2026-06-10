@@ -55,7 +55,7 @@ void RotaryMode::Init() {
     drum_lfo_q_.Reset();
 
     // Butterworth 2-pole crossover; frequency updated each Prepare()
-    xover_.SetQ(0.707f);
+    xover_.SetQ(0.5f);
     xover_.SetFreq(800.0f);
 
     // Horn cabinet resonance: Q fixed here, frequency updated each Prepare() via tone

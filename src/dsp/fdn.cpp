@@ -17,10 +17,12 @@ void Fdn::Init(const Config& cfg) {
 
     for (int i = 0; i < n_lines_; ++i) {
         lines_[i].Init(cfg.bufs[i], cfg.delays[i]);
-        lines_[i].SetDelay(static_cast<float>(cfg.delays[i] - 1));
-        delay_samples_[i]    = static_cast<float>(cfg.delays[i] - 1);
+        const float max_delay = static_cast<float>(cfg.delays[i]) - 2.0f - MAX_MOD_DEPTH_SAMPLES;
+        const float delay_samples = max_delay > 2.0f ? max_delay : 2.0f;
+        lines_[i].SetDelay(delay_samples);
+        delay_samples_[i]    = delay_samples;
         modulated_delay_[i]  = delay_samples_[i];
-        delay_s_[i]          = static_cast<float>(cfg.delays[i]) / sample_rate_;
+        delay_s_[i]          = delay_samples_[i] / sample_rate_;
         lp_state_[i]  = 0.0f;
         lfo_phase_[i] = static_cast<float>(i) / static_cast<float>(n_lines_);
         feedback_[i]  = 0.7f;  // reasonable default
@@ -74,7 +76,7 @@ void Fdn::SetDampFromRt60Ratio(float rt60_lf_s, float hf_ratio) {
 void Fdn::SetModulation(float depth_samples) {
     // Cap depth to 8 samples (~5 cents at 2.52 Hz) to stay below audible flutter threshold.
     const float clamped = depth_samples < 0.0f ? 0.0f : depth_samples;
-    mod_depth_ = clamped > 8.0f ? 8.0f : clamped;
+    mod_depth_ = clamped > MAX_MOD_DEPTH_SAMPLES ? MAX_MOD_DEPTH_SAMPLES : clamped;
 }
 
 void Fdn::SetHold(bool hold) {
@@ -126,7 +128,11 @@ StereoFrame Fdn::Process(float input) {
     // One-pole LP damping & DC blocking in feedback path.
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
-        lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        if (hold_) {
+            lp_state_[i] = raw_blocked;  // bypass LP during hold; frozen pad stays bright
+        } else {
+            lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        }
         if (!std::isfinite(lp_state_[i])) {
             lp_state_[i] = 0.0f;
             dc_[i].Init();
@@ -147,9 +153,10 @@ StereoFrame Fdn::Process(float input) {
 
     // Distribute input and write back with feedback.
     const float input_gain = 1.0f / static_cast<float>(n_lines_);
+    const float in_scaled = hold_ ? 0.0f : input * input_gain;  // mute input during hold
     for (int i = 0; i < n_lines_; ++i) {
         const float fb = hold_ ? 1.0f : feedback_[i];
-        lines_[i].Write(input * input_gain + fb * mixed[i]);
+        lines_[i].Write(in_scaled + fb * mixed[i]);
     }
 
     // Stereo output: even lines → L, odd lines → R.
@@ -171,7 +178,11 @@ StereoFrame Fdn::Process(StereoFrame input) {
     // One-pole LP damping & DC blocking in feedback path.
     for (int i = 0; i < n_lines_; ++i) {
         float raw_blocked = dc_[i].Process(v[i]);
-        lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        if (hold_) {
+            lp_state_[i] = raw_blocked;  // bypass LP during hold; frozen pad stays bright
+        } else {
+            lp_state_[i] += damp_ * (raw_blocked - lp_state_[i]);
+        }
         if (!std::isfinite(lp_state_[i])) {
             lp_state_[i] = 0.0f;
             dc_[i].Init();
@@ -194,8 +205,8 @@ StereoFrame Fdn::Process(StereoFrame input) {
     const float input_gain = 1.0f / static_cast<float>(n_lines_);
     for (int i = 0; i < n_lines_; ++i) {
         const float fb = hold_ ? 1.0f : feedback_[i];
-        const float in_val = (i % 2 == 0) ? input.left : input.right;
-        lines_[i].Write(in_val * input_gain + fb * mixed[i]);
+        const float in_val = hold_ ? 0.0f : ((i % 2 == 0) ? input.left : input.right) * input_gain;
+        lines_[i].Write(in_val + fb * mixed[i]);
     }
 
     // Stereo output: even lines → L, odd lines → R.

@@ -27,14 +27,13 @@ void TapeDelay::Init() {
 
 void TapeDelay::Reset() {
     lfo_.Reset();
-    lfo_out_ = 0.0f;
     tape_line.Reset();
     dc_l_.Init();
     dc_r_.Init();
     dc_fb_.Init();
     env_state_ = 0.0f;
     tape_lp_ = 0.0f;
-    delay_smooth_ = 0.0f;
+    delay_smooth_ = -1.0f;
     aa_state_ = 0.0f;
     aa_coef_  = 1.0f;
     fb_lim_.Reset();
@@ -44,7 +43,6 @@ void TapeDelay::Reset() {
 
 void TapeDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
     filter_.SetKnob(params.filter);
     sat_.SetDrive(params.grit);
     const float flutter = params.mod_dep * 50.0f;
@@ -62,9 +60,16 @@ void TapeDelay::Prepare(const ParamSet& params) {
 StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
     static constexpr float kDelaySlew = 0.0001f;  // ~0.2s glide for tape varispeed warp
 
-    const float lfo_val = lfo_out_;
+    const float target_samps = params.time * SAMPLE_RATE;
+    if (delay_smooth_ < 0.0f) delay_smooth_ = target_samps;
+    const float lfo_val = lfo_.Process();
     const float flutter = params.mod_dep * 50.0f;
-    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    {
+        float step = kDelaySlew * (target_samps - delay_smooth_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_ += step;
+    }
     float delay_samps = delay_smooth_ + lfo_val * flutter;
     if (delay_samps < 1.0f) delay_samps = 1.0f;
     if (delay_samps > static_cast<float>(MAX_DELAY_SAMPLES - 1))
@@ -117,7 +122,7 @@ StereoFrame TapeDelay::Process(float input, const ParamSet& params) {
 
     // Apply gain compensation to keep loop gain controlled and prevent runaway feedback scream,
     // while still allowing warm, organic self-oscillation at maximum repeats/grit.
-    const float comp = 1.0f / (1.0f + params.grit * 12.33f);
+    const float comp = 1.0f / (1.0f + params.grit * params.grit * 14.0f);
     fb_mono *= comp;
 
     const float feedback = dc_fb_.Process(fb_lim_.Process(fb_mono * params.repeats));

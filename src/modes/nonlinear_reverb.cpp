@@ -59,15 +59,15 @@ void NonlinearReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
     fdn_cfg.bufs[0]     = buf_fdn0;
     fdn_cfg.bufs[1]     = buf_fdn1;
     fdn_cfg.bufs[2]     = buf_fdn2;
     fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.delays[0]   = 1451;
-    fdn_cfg.delays[1]   = 1747;
-    fdn_cfg.delays[2]   = 2083;
-    fdn_cfg.delays[3]   = 2411;
+    fdn_cfg.delays[0]   = 726;
+    fdn_cfg.delays[1]   = 874;
+    fdn_cfg.delays[2]   = 1042;
+    fdn_cfg.delays[3]   = 1206;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -76,33 +76,41 @@ void NonlinearReverb::Init() {
     fdn_.SetDecay(1.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
+    input_env_.Init(2.0f, 140.0f);
     shape_phase_ = 0.0f;
-    decay_rate_  = 1.0f / SAMPLE_RATE;
+    input_env_slow_ = 0.0f;
+    shape_gain_smooth_ = 0.0f;
+    decay_rate_  = 1.0f / REVERB_SAMPLE_RATE;
 }
 
 void NonlinearReverb::Reset() {
     pre_delay_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
+    input_env_.Init(2.0f, 140.0f);
     shape_phase_ = 0.0f;
+    input_env_slow_ = 0.0f;
+    shape_gain_smooth_ = 0.0f;
 }
 
 void NonlinearReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    fdn_.SetModulation(params.mod * Fdn::MAX_MOD_DEPTH_SAMPLES);
     tone_[0].SetKnob(params.tone);
     tone_[1].SetKnob(params.tone);
 
     diffuser_.SetDiffusion(0.4f + params.param2 * 0.4f);
 
     const float decay = params.decay < 0.01f ? 0.01f : params.decay;
-    decay_rate_ = 1.0f / (decay * SAMPLE_RATE);
+    decay_rate_ = 1.0f / (decay * REVERB_SAMPLE_RATE);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame NonlinearReverb::Process(float input, const ParamSet& params) {
@@ -113,6 +121,11 @@ StereoFrame NonlinearReverb::Process(float input, const ParamSet& params) {
 
     const StereoFrame late = fdn_.Process(diffused);
 
+    const float input_env = input_env_.Process(pre);
+    const bool onset = input_env > 0.035f && input_env > input_env_slow_ + 0.025f;
+    input_env_slow_ += 0.0015f * (input_env - input_env_slow_);
+    if (onset) shape_phase_ = 0.0f;
+
     // Shape selection from param1
     const int shape = (params.param1 < 0.166f) ? 0
                     : (params.param1 < 0.333f) ? 1
@@ -121,15 +134,17 @@ StereoFrame NonlinearReverb::Process(float input, const ParamSet& params) {
                     : (params.param1 < 0.833f) ? 4
                     : 5;
 
-    const float sg = shape_gain(shape_phase_, shape);
+    const float target_gain = (shape_phase_ >= 1.0f) ? 0.0f : shape_gain(shape_phase_, shape);
+    static constexpr float kGainSlew = 1.0f / (0.002f * REVERB_SAMPLE_RATE);
+    shape_gain_smooth_ += kGainSlew * (target_gain - shape_gain_smooth_);
 
-    // Advance phase
+    // Advance phase after input onset; clamp instead of free-running.
     shape_phase_ += decay_rate_;
-    if (shape_phase_ > 1.0f) shape_phase_ = 0.0f;
+    if (shape_phase_ > 1.0f) shape_phase_ = 1.0f;
 
     const StereoFrame out{
-        tone_[0].Process(late.left  * sg),
-        tone_[1].Process(late.right * sg)
+        tone_[0].Process(late.left  * shape_gain_smooth_),
+        tone_[1].Process(late.right * shape_gain_smooth_)
     };
     return out;
 }

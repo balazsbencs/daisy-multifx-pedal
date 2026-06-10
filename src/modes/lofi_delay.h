@@ -17,7 +17,6 @@ public:
 private:
     Lfo       lfo_;
     DcBlocker dc_;
-    float     lfo_out_ = 0.0f;
 
     float    held_sample_  = 0.0f;
     float    sr_counter_   = 0.0f;
@@ -28,6 +27,7 @@ private:
     float    aa_lp_        = 0.0f;
     float    delay_smooth_ = 0.0f;
     FeedbackLimiter fb_lim_;
+    DcBlocker  dc_fb_;
 };
 
 } // namespace pedal

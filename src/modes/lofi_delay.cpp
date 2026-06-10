@@ -26,19 +26,19 @@ void LofiDelay::Init() {
 void LofiDelay::Reset() {
     lofi_line.Reset();
     dc_.Init();
+    dc_fb_.Init();
     held_sample_  = 0.0f;
     sr_counter_   = 0.0f;
     bits_         = 16;
     bit_scale_    = 65536.0f;
     decimate_     = 1.0f;
     aa_lp_        = 0.0f;
-    delay_smooth_ = 0.0f;
+    delay_smooth_ = -1.0f;
     fb_lim_.Reset();
 }
 
 void LofiDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
 
     // bits range: 16 (grit=0) down to 4 (grit=1)
     bits_ = 16 - static_cast<int>(params.grit * 12.0f);
@@ -52,8 +52,15 @@ void LofiDelay::Prepare(const ParamSet& params) {
 StereoFrame LofiDelay::Process(float input, const ParamSet& params) {
     static constexpr float kDelaySlew = 0.001f;
 
-    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
-    const float lfo_val    = lfo_out_;
+    const float target_samps = params.time * SAMPLE_RATE;
+    if (delay_smooth_ < 0.0f) delay_smooth_ = target_samps;
+    {
+        float step = kDelaySlew * (target_samps - delay_smooth_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_ += step;
+    }
+    const float lfo_val    = lfo_.Process();
     float delay_samps      = delay_smooth_ + lfo_val * (params.mod_dep * 20.0f);
     if (delay_samps < 1.0f)
         delay_samps = 1.0f;
@@ -82,7 +89,7 @@ StereoFrame LofiDelay::Process(float input, const ParamSet& params) {
     }
     wet = held_sample_;
 
-    const float feedback = fb_lim_.Process(wet * params.repeats);
+    const float feedback = dc_fb_.Process(fb_lim_.Process(wet * params.repeats));
     lofi_line.Write(input + feedback);
 
     wet = dc_.Process(wet);

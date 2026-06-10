@@ -21,7 +21,10 @@ void DelayLineSdram::SetDelay(float delay_samples) {
     size_t int_part = static_cast<size_t>(delay_samples);
     frac_  = delay_samples - static_cast<float>(int_part);
     if (int_part < 2)          int_part = 2;
-    if (int_part > size_ - 3)  int_part = size_ - 3;
+    // Integer delays use the Read() fast path which only accesses index d → max is size_-1.
+    // Fractional delays use Hermite interpolation reading d-1..d+2 → max is size_-3.
+    const size_t max_int = (frac_ == 0.0f) ? (size_ - 1) : (size_ - 3);
+    if (int_part > max_int)    int_part = max_int;
     delay_ = int_part;
 }
 

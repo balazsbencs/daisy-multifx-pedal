@@ -51,6 +51,10 @@ StereoFrame VibeMode::Process(StereoFrame input, const ParamSet& params) {
     float x = input.mono() + feedback_ * regen;
 
     // Mild pre-saturation: germanium transistor 3rd-harmonic coloring (~4%).
+    // Clamp before applying: x - 0.04x³ is non-monotonic above |x|=2.89, which
+    // can be reached through the regen feedback path.
+    if (x >  2.87f) x =  2.87f;
+    if (x < -2.87f) x = -2.87f;
     x = x - 0.04f * x * x * x;
 
     // Per-stage allpass sweep with independent LDR phase offsets.

@@ -33,15 +33,15 @@ void BloomReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
     fdn_cfg.bufs[0]     = buf_fdn0;
     fdn_cfg.bufs[1]     = buf_fdn1;
     fdn_cfg.bufs[2]     = buf_fdn2;
     fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.delays[0]   = 2903;
-    fdn_cfg.delays[1]   = 3491;
-    fdn_cfg.delays[2]   = 4159;
-    fdn_cfg.delays[3]   = 4813;
+    fdn_cfg.delays[0]   = 1452;
+    fdn_cfg.delays[1]   = 1746;
+    fdn_cfg.delays[2]   = 2080;
+    fdn_cfg.delays[3]   = 2407;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -50,10 +50,12 @@ void BloomReverb::Init() {
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.25f);
 
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
+    input_env_.Init(2.0f, 160.0f);
     bloom_env_       = 0.0f;
-    bloom_rate_      = 1.0f / (2.0f * SAMPLE_RATE);
+    input_env_slow_  = 0.0f;
+    bloom_rate_      = 1.0f / (2.0f * REVERB_SAMPLE_RATE);
     bloom_feedback_  = 0.0f;
     bloom_fb_signal_ = 0.0f;
 }
@@ -62,23 +64,27 @@ void BloomReverb::Reset() {
     pre_delay_.Reset();
     diffuser_.Reset();
     fdn_.Reset();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
+    input_env_.Init(2.0f, 160.0f);
     bloom_env_       = 0.0f;
+    input_env_slow_  = 0.0f;
     bloom_fb_signal_ = 0.0f;
 }
 
 void BloomReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    fdn_.SetModulation(params.mod * Fdn::MAX_MOD_DEPTH_SAMPLES);
     tone_[0].SetKnob(params.tone);
     tone_[1].SetKnob(params.tone);
 
     const float bloom_time_s = 0.5f + params.param1 * 4.5f;
-    bloom_rate_    = 1.0f / (bloom_time_s * SAMPLE_RATE);
+    bloom_rate_    = 1.0f / (bloom_time_s * REVERB_SAMPLE_RATE);
     bloom_feedback_ = params.param2 * 0.7f;
+    fdn_.PrepareBlock();
 }
 
 StereoFrame BloomReverb::Process(float input, const ParamSet& /*params*/) {
@@ -87,7 +93,12 @@ StereoFrame BloomReverb::Process(float input, const ParamSet& /*params*/) {
 
     const float diffused = diffuser_.Process(pre);
 
-    // Bloom envelope rises slowly from 0 toward 1
+    const float input_env = input_env_.Process(pre);
+    const bool onset = input_env > 0.035f && input_env > input_env_slow_ + 0.025f;
+    input_env_slow_ += 0.0015f * (input_env - input_env_slow_);
+    if (onset) bloom_env_ = 0.0f;
+
+    // Bloom envelope rises slowly from each detected onset toward 1.
     bloom_env_ += bloom_rate_ * (1.0f - bloom_env_);
 
     // FDN input: diffused signal + bloom-gated feedback from previous output

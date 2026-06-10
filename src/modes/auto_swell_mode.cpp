@@ -46,17 +46,21 @@ StereoFrame AutoSwellMode::Process(StereoFrame input, const ParamSet& params) {
     // Adaptive threshold: τ ≈ 400 ms slow tracker
     static constexpr float kThreshSlew = 1.0f / 19200.0f;
     thresh_env_ += kThreshSlew * (env_val - thresh_env_);
-    const float threshold = thresh_env_ * 1.5f > 0.05f ? thresh_env_ * 1.5f : 0.05f;
-    if (env_val > threshold) {
+    // Hysteresis: separate open/close thresholds prevent chatter at the boundary.
+    const float thresh_close = thresh_env_ * 1.8f > 0.07f ? thresh_env_ * 1.8f : 0.07f;
+    const float thresh_open  = thresh_env_ * 1.2f > 0.04f ? thresh_env_ * 1.2f : 0.04f;
+    if (env_val > thresh_close) {
         // Input is loud: kill gain quickly (duck)
         swell_gain_ += duck_coef_ * (0.0f - swell_gain_);
-    } else {
+    } else if (env_val < thresh_open) {
         // Input is quiet: slowly ramp gain up (the swell opens)
         swell_gain_ += swell_coef_ * (1.0f - swell_gain_);
     }
+    // In hysteresis zone: hold current gain state
 
-    // depth boosts the swell peak (+6 dB max); apply to each channel independently.
-    const float scale = swell_gain_ * (1.0f + params.depth);
+    // S-curve (smoothstep) on swell_gain_ for perceptually correct swell shape.
+    const float curved = swell_gain_ * swell_gain_ * (3.0f - 2.0f * swell_gain_);
+    const float scale = curved * (1.0f + params.depth);
     float wet_l = input.left  * scale;
     float wet_r = input.right * scale;
     if (wet_l >  1.0f) wet_l =  1.0f;

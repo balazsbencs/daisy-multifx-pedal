@@ -23,8 +23,12 @@ private:
     DcBlocker dc_r_;
     FeedbackLimiter fb_lim_l_;
     FeedbackLimiter fb_lim_r_;
+    DcBlocker  dc_fb_l_;
+    DcBlocker  dc_fb_r_;
     float     delay_smooth_l_ = 0.0f;
     float     delay_smooth_r_ = 0.0f;
+    float     target_delay_    = 0.0f;
+    float     filter_fb_gain_  = 1.0f;
 
 };
 

@@ -13,10 +13,10 @@ static float DSY_SDRAM_BSS buf_er[6144];
 
 // 16 fixed tap delays
 static constexpr uint16_t kTapDelays[16] = {
-     667,  893, 1109, 1327,
-    1601, 1873, 2143, 2417,
-    2731, 3049, 3371, 3697,
-    4027, 4361, 4699, 5041,
+     334,  447,  555,  664,
+     801,  937, 1072, 1209,
+    1366, 1525, 1686, 1849,
+    2014, 2181, 2350, 2521,
 };
 
 // Fixed tap gains (decreasing)
@@ -52,7 +52,7 @@ void ReflectionsReverb::Reset() {
 }
 
 void ReflectionsReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
 
     // param2 (Loc X): shift stereo pan spread
@@ -60,7 +60,7 @@ void ReflectionsReverb::Prepare(const ParamSet& params) {
     ErTap taps[16];
     for (int i = 0; i < 16; ++i) {
         taps[i].delay_samples = kTapDelays[i];
-        taps[i].gain          = kTapGains[i] * (0.6f + params.param1 * 0.4f);
+        taps[i].gain          = kTapGains[i] * (0.6f + params.param1 * 0.4f) * params.decay;
         // Pan: alternating + shifted by param2
         const float base_pan  = (i & 1) ? 1.0f : -1.0f;
         const float pan_shift = (params.param2 - 0.5f) * 1.6f;

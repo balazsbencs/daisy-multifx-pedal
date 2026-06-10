@@ -21,7 +21,6 @@ private:
     EnvelopeFollower follower_;
     ToneFilter       filter_;
     DcBlocker        dc_;
-    float            lfo_out_      = 0.0f;
     float            delay_smooth_ = 0.0f;
     FeedbackLimiter  fb_lim_;
 };
