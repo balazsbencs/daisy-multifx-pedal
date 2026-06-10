@@ -22,15 +22,15 @@ void SwellReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
     fdn_cfg.bufs[0]     = buf_fdn0;
     fdn_cfg.bufs[1]     = buf_fdn1;
     fdn_cfg.bufs[2]     = buf_fdn2;
     fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.delays[0]   = 2521;
-    fdn_cfg.delays[1]   = 3079;
-    fdn_cfg.delays[2]   = 3659;
-    fdn_cfg.delays[3]   = 4231;
+    fdn_cfg.delays[0]   = 1261;
+    fdn_cfg.delays[1]   = 1540;
+    fdn_cfg.delays[2]   = 1830;
+    fdn_cfg.delays[3]   = 2116;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -39,32 +39,34 @@ void SwellReverb::Init() {
     fdn_.SetDecay(2.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     env_follow_.Init(5.0f, 100.0f);
 
     ramp_gain_ = 0.0f;
-    ramp_rate_ = 1.0f / (0.5f * SAMPLE_RATE);
+    ramp_rate_ = 1.0f / (0.5f * REVERB_SAMPLE_RATE);
 }
 
 void SwellReverb::Reset() {
     pre_delay_.Reset();
     fdn_.Reset();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     ramp_gain_ = 0.0f;
 }
 
 void SwellReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    fdn_.SetModulation(params.mod * 4.0f);
     tone_[0].SetKnob(params.tone);
     tone_[1].SetKnob(params.tone);
 
     const float rise_time_s = 0.08f + params.param1 * 3.92f;
-    ramp_rate_ = 1.0f / (rise_time_s * SAMPLE_RATE);
+    ramp_rate_ = 1.0f / (rise_time_s * REVERB_SAMPLE_RATE);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame SwellReverb::Process(float input, const ParamSet& params) {

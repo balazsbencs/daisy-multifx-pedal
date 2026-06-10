@@ -23,7 +23,6 @@ private:
     DcBlocker  dc_l_;
     DcBlocker  dc_r_;
     DcBlocker  dc_fb_;
-    float      lfo_out_ = 0.0f;
     float      env_state_ = 0.0f;
     float      tape_lp_ = 0.0f;
     float      delay_smooth_ = 0.0f;

@@ -23,19 +23,26 @@ void PatternDelay::Init() {
 void PatternDelay::Reset() {
     pattern_line.Reset();
     dc_.Init();
-    delay_smooth_ = 0.0f;
+    dc_fb_.Init();
+    delay_smooth_ = -1.0f;
 }
 
 void PatternDelay::Prepare(const ParamSet& params) {
     lfo_.SetRate(params.mod_spd);
-    lfo_out_ = lfo_.PrepareBlock();
     filter_.SetKnob(params.filter);
 }
 
 StereoFrame PatternDelay::Process(float input, const ParamSet& params) {
     static constexpr float kDelaySlew = 0.001f;
-    const float lfo_val = lfo_out_;
-    delay_smooth_ += kDelaySlew * (params.time * SAMPLE_RATE - delay_smooth_);
+    const float target_samps = params.time * SAMPLE_RATE;
+    if (delay_smooth_ < 0.0f) delay_smooth_ = target_samps;
+    const float lfo_val = lfo_.Process();
+    {
+        float step = kDelaySlew * (target_samps - delay_smooth_);
+        if (step >  0.5f) step =  0.5f;
+        if (step < -0.5f) step = -0.5f;
+        delay_smooth_ += step;
+    }
     float base_samps = delay_smooth_ + lfo_val * (params.mod_dep * 25.0f);
     if (base_samps < 1.0f) base_samps = 1.0f;
 
@@ -62,11 +69,11 @@ StereoFrame PatternDelay::Process(float input, const ParamSet& params) {
         if (i == 0) first_tap = tap;
         wet += tap;
     }
-    wet *= (1.0f / 3.0f); // normalise sum of taps
+    wet *= 0.57735027f; // normalise 3-tap sum (1/√3 for equal-power)
 
     wet = filter_.Process(wet);
 
-    const float feedback = first_tap * params.repeats;
+    const float feedback = dc_fb_.Process(first_tap * params.repeats);
     pattern_line.Write(input + feedback);
 
     wet = dc_.Process(wet);

@@ -15,6 +15,11 @@ public:
         lp2_ = 0.0f;
         hp_  = 0.0f;
         clock_phase_ = 0.0f;
+        input_lp_k_ = -1.0f;
+    }
+
+    void SetInputLpK(float k) {
+        input_lp_k_ = k < 0.10f ? 0.10f : (k > 0.50f ? 0.50f : k);
     }
 
     /// Process one sample through the BBD input coloration chain.
@@ -24,9 +29,14 @@ public:
     float Process(float input, float noise_amount, uint32_t& rand_state, float delay_samples = 200.0f) {
         // Dynamic LPF cutoff: longer delays lose more high-frequencies.
         // At 144 samples (3ms) k = 0.45 (~4.6kHz). At 960 samples (20ms) k = 0.15 (~1.2kHz).
-        float k = 0.5f - 0.35f * ((delay_samples - 48.0f) / 912.0f);
-        if (k < 0.1f) k = 0.1f;
-        if (k > 0.5f) k = 0.5f;
+        float k;
+        if (input_lp_k_ >= 0.0f) {
+            k = input_lp_k_;
+        } else {
+            k = 0.5f - 0.35f * ((delay_samples - 48.0f) / 912.0f);
+            if (k < 0.1f) k = 0.1f;
+            if (k > 0.5f) k = 0.5f;
+        }
 
         lp1_ += k * (input - lp1_);
         lp2_ += k * (lp1_  - lp2_);
@@ -71,6 +81,7 @@ private:
     float lp2_ = 0.0f;
     float hp_  = 0.0f;
     float clock_phase_ = 0.0f;
+    float input_lp_k_ = -1.0f;
 };
 
 } // namespace pedal

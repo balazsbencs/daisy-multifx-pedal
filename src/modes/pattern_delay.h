@@ -18,7 +18,7 @@ private:
     Lfo        lfo_;
     ToneFilter filter_;
     DcBlocker  dc_;
-    float      lfo_out_ = 0.0f;
+    DcBlocker  dc_fb_;
     float      delay_smooth_ = 0.0f;
 
     // Tap multipliers for each of the 3 pattern types (3 taps each)

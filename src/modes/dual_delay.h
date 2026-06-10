@@ -25,6 +25,8 @@ private:
     float      delay_smooth_r_ = 0.0f;
     FeedbackLimiter fb_lim_l_;
     FeedbackLimiter fb_lim_r_;
+    DcBlocker  dc_fb_l_;
+    DcBlocker  dc_fb_r_;
 };
 
 } // namespace pedal

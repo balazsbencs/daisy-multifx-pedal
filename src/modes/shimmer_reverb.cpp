@@ -35,15 +35,15 @@ void ShimmerReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
     fdn_cfg.bufs[0]     = buf_fdn0;
     fdn_cfg.bufs[1]     = buf_fdn1;
     fdn_cfg.bufs[2]     = buf_fdn2;
     fdn_cfg.bufs[3]     = buf_fdn3;
-    fdn_cfg.delays[0]   = 2729;
-    fdn_cfg.delays[1]   = 3251;
-    fdn_cfg.delays[2]   = 3863;
-    fdn_cfg.delays[3]   = 4507;
+    fdn_cfg.delays[0]   = 1365;
+    fdn_cfg.delays[1]   = 1626;
+    fdn_cfg.delays[2]   = 1932;
+    fdn_cfg.delays[3]   = 2254;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -52,13 +52,13 @@ void ShimmerReverb::Init() {
     fdn_.SetDecay(3.0f);
     fdn_.SetDamping(0.2f);
 
-    pitch_shifter_[0].Init(buf_pitch0, 8192, SAMPLE_RATE);
-    pitch_shifter_[1].Init(buf_pitch1, 8192, SAMPLE_RATE);
+    pitch_shifter_[0].Init(buf_pitch0, 8192, REVERB_SAMPLE_RATE);
+    pitch_shifter_[1].Init(buf_pitch1, 8192, REVERB_SAMPLE_RATE);
     pitch_shifter_[0].SetShift(12.0f);
     pitch_shifter_[1].SetShift(7.0f);
 
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     hold_           = false;
     pitch_fb_l_     = 0.0f;
     pitch_fb_r_     = 0.0f;
@@ -70,24 +70,26 @@ void ShimmerReverb::Reset() {
     fdn_.Reset();
     pitch_shifter_[0].Reset();
     pitch_shifter_[1].Reset();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     hold_           = false;
     pitch_fb_l_     = 0.0f;
     pitch_fb_r_     = 0.0f;
 }
 
 void ShimmerReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetDamping(0.15f + (1.0f - params.tone) * 0.35f);
+    fdn_.SetDamping(0.15f + params.tone * 0.35f);
+    fdn_.SetModulation(params.mod * Fdn::MAX_MOD_DEPTH_SAMPLES);
     tone_[0].SetKnob(params.tone);
     tone_[1].SetKnob(params.tone);
 
     // Stagger Left and Right pitch shifts by +/-10 cents (0.10 semitones) for stereo width
     pitch_shifter_[0].SetShift(params.param1 - 0.10f);
     pitch_shifter_[1].SetShift(params.param2 + 0.10f);
+    fdn_.PrepareBlock();
 }
 
 StereoFrame ShimmerReverb::Process(float input, const ParamSet& params) {
@@ -97,7 +99,7 @@ StereoFrame ShimmerReverb::Process(float input, const ParamSet& params) {
     const float diffused = diffuser_.Process(pre);
 
     // Combine dry diffused input with previous shimmer feedback in stereo
-    const float shimmer_amount = params.mod;
+    const float shimmer_amount = hold_ ? 0.0f : params.mod;
     StereoFrame fdn_in;
     fdn_in.left  = diffused + shimmer_amount * 0.5f * pitch_fb_l_;
     fdn_in.right = diffused + shimmer_amount * 0.5f * pitch_fb_r_;

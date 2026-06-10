@@ -67,8 +67,11 @@ StereoFrame PhaserMode::Process(StereoFrame input, const ParamSet& params) {
         if (coeff2 > -0.01f) coeff2 = -0.01f;
         if (coeff2 < -0.99f) coeff2 = -0.99f;
 
-        float xa = input.mono() + feedback_  * regen;
-        float xb = input.mono() + feedback2_ * regen;
+        static constexpr float kFbDrive2 = 2.0f;
+        const float fb_a_clipped = tanhf(feedback_  * kFbDrive2) / kFbDrive2;
+        const float fb_b_clipped = tanhf(feedback2_ * kFbDrive2) / kFbDrive2;
+        float xa = input.mono() + fb_a_clipped * regen;
+        float xb = input.mono() + fb_b_clipped * regen;
         for (int i = 0; i < 4; ++i) {
             stages_[i].SetCoeff(coeff);
             xa = stages_[i].Process(xa);
