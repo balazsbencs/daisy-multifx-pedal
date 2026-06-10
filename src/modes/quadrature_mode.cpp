@@ -70,11 +70,7 @@ StereoFrame QuadratureMode::Process(StereoFrame input, const ParamSet& params) {
     if (sub_mode_ == 1) {
         const float lfo_val  = lfo_.Process();  // -1..+1
         const float sr       = static_cast<float>(SAMPLE_RATE);
-        // Clamp instantaneous frequency to ≥ 0: at low speed and high depth the
-        // LFO can drive the carrier frequency negative, reversing phase direction
-        // and producing downward pitch shift instead of symmetric vibrato.
-        float inst_freq = params.speed + params.depth * 80.0f * lfo_val;
-        if (inst_freq < 0.0f) inst_freq = 0.0f;
+        const float inst_freq = params.depth * 80.0f * lfo_val;
         const float inst_inc = kTwoPi * inst_freq / sr;
         carrier_phase_ = wrap2pi(carrier_phase_ + inst_inc);
     } else {

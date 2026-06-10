@@ -9,7 +9,8 @@ namespace pedal {
 
 namespace {
 
-static float DSY_SDRAM_BSS buf_main[24000];
+static constexpr size_t kMainDelaySize = static_cast<size_t>(REVERB_SAMPLE_RATE * 1.5f) + 16;
+static float DSY_SDRAM_BSS buf_main[kMainDelaySize];
 static float DSY_SDRAM_BSS buf_diff0[Diffuser::kDelays[0] + 1];
 static float DSY_SDRAM_BSS buf_diff1[Diffuser::kDelays[1] + 1];
 static float DSY_SDRAM_BSS buf_diff2[Diffuser::kDelays[2] + 1];
@@ -18,8 +19,8 @@ static float DSY_SDRAM_BSS buf_diff3[Diffuser::kDelays[3] + 1];
 } // namespace
 
 void MagnetoReverb::Init() {
-    delay_.Init(buf_main, 24000);
-    delay_.SetDelay(480.0f);
+    delay_.Init(buf_main, kMainDelaySize);
+    delay_.SetDelay(240.0f);
 
     float* diff_bufs[Diffuser::STAGES] = {
         buf_diff0, buf_diff1, buf_diff2, buf_diff3
@@ -47,7 +48,7 @@ void MagnetoReverb::Prepare(const ParamSet& params) {
     // Period based on decay (200ms – 1.5s range)
     const float decay_clamped = params.decay < 0.2f ? 0.2f
                               : (params.decay > 1.5f ? 1.5f : params.decay);
-    const float period = decay_clamped * SAMPLE_RATE;
+    const float period = decay_clamped * REVERB_SAMPLE_RATE;
 
     if (params.param2 < 0.5f) {
         // Even spacing
@@ -71,10 +72,11 @@ StereoFrame MagnetoReverb::Process(float input, const ParamSet& params) {
     // Read multi-tap outputs before writing (avoids feedback from current input)
     float left  = 0.0f;
     float right = 0.0f;
-    const float g = 1.0f / (float)n_heads_;
+    float fb_sum = 0.0f;
 
     for (int i = 0; i < n_heads_; ++i) {
-        const float tap = delay_.ReadLinear(head_delays_[i]) * g;
+        const float tap = delay_.ReadLinear(head_delays_[i]);
+        fb_sum += tap;
         if ((i & 1) == 0) left  += tap;
         else               right += tap;
     }
@@ -94,7 +96,7 @@ StereoFrame MagnetoReverb::Process(float input, const ParamSet& params) {
     // One-pole LP tames broadband brightness; cap keeps the loop stable.
     float fb = params.pre_delay;          // 0..0.95
     if (fb > 0.85f) fb = 0.85f;
-    const float fb_in = 0.5f * (left + right);
+    const float fb_in = fb_sum / static_cast<float>(n_heads_);
     fb_lp_ += 0.4f * (fb_in - fb_lp_);
     delay_.Write(input + fb * fb_lp_);
 

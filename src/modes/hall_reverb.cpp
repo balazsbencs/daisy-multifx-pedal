@@ -20,10 +20,10 @@ static float DSY_SDRAM_BSS buf_fdn2[5903];
 static float DSY_SDRAM_BSS buf_fdn3[6997];
 
 static constexpr ErTap kErTaps[4] = {
-    { 480,  0.78f, -0.70f},
-    { 912,  0.68f,  0.70f},
-    {2688,  0.38f, -0.90f},
-    {3504,  0.32f,  0.90f},
+    { 240,  0.78f, -0.70f},
+    { 456,  0.68f,  0.70f},
+    {1344,  0.38f, -0.90f},
+    {1752,  0.32f,  0.90f},
 };
 
 } // namespace
@@ -44,11 +44,11 @@ void HallReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 3307;
-    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 4159;
-    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 5903;
-    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 6997;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 1654;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 2080;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 2952;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 3499;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -66,7 +66,7 @@ void HallReverb::Reset() {
 }
 
 void HallReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     // Round to integer samples: pre-delay has no sub-sample modulation so Hermite
     // precision is wasted. Integer delay triggers the Read() fast path (1 read vs 4).
     const float rounded = (delay_samples < 1.0f ? 1.0f : delay_samples) + 0.5f;

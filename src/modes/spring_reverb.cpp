@@ -9,7 +9,7 @@ namespace pedal {
 
 namespace {
 
-// Spring 0 allpass buffers — ×10 scale for realistic dispersive drip (170–790 samples = 3.5–16.5ms)
+// Spring 0 allpass buffers — over-allocated; active delays are retuned for the 24 kHz reverb stage.
 static float DSY_SDRAM_BSS s0_ap0[171];
 static float DSY_SDRAM_BSS s0_ap1[231];
 static float DSY_SDRAM_BSS s0_ap2[311];
@@ -41,13 +41,13 @@ static float DSY_SDRAM_BSS s2_comb[4521];
 } // namespace
 
 // Base allpass delays (spring 0)
-static constexpr size_t kApDelays0[6] = { 170, 230, 310, 430, 590, 790 };
+static constexpr size_t kApDelays0[6] = { 85, 115, 155, 215, 295, 395 };
 // g values descending
 static constexpr float  kApG[6]       = { 0.70f, 0.65f, 0.60f, 0.55f, 0.50f, 0.45f };
 // Spring 1 allpass delays (×1.07, rounded)
-static constexpr size_t kApDelays1[6] = { 182, 247, 332, 461, 632, 845 };
+static constexpr size_t kApDelays1[6] = { 91, 124, 166, 231, 316, 423 };
 // Spring 2 allpass delays (×1.13, rounded)
-static constexpr size_t kApDelays2[6] = { 192, 260, 350, 486, 667, 893 };
+static constexpr size_t kApDelays2[6] = { 96, 130, 175, 243, 334, 447 };
 
 void SpringReverb::Init() {
     // Spring 0
@@ -58,7 +58,7 @@ void SpringReverb::Init() {
         ap_[0][s].SetDelay(kApDelays0[s]);
     }
     comb_[0].Init(s0_comb, 4001);
-    comb_[0].SetDelay(4000);
+    comb_[0].SetDelay(2000);
 
     // Spring 1
     float* sp1_bufs[6] = { s1_ap0, s1_ap1, s1_ap2, s1_ap3, s1_ap4, s1_ap5 };
@@ -68,7 +68,7 @@ void SpringReverb::Init() {
         ap_[1][s].SetDelay(kApDelays1[s]);
     }
     comb_[1].Init(s1_comb, 4281);
-    comb_[1].SetDelay(4280);
+    comb_[1].SetDelay(2140);
 
     // Spring 2
     float* sp2_bufs[6] = { s2_ap0, s2_ap1, s2_ap2, s2_ap3, s2_ap4, s2_ap5 };
@@ -78,17 +78,18 @@ void SpringReverb::Init() {
         ap_[2][s].SetDelay(kApDelays2[s]);
     }
     comb_[2].Init(s2_comb, 4521);
-    comb_[2].SetDelay(4520);
+    comb_[2].SetDelay(2260);
 
     sat_.Init();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     hold_ = false;
     for (auto& fb : comb_fb_) fb = 0.8f;
+    for (auto& makeup : comb_makeup_) makeup = 0.6f;
 
-    spring_lfo_[0].Init(0.30f, LfoWave::SmoothRandom);
-    spring_lfo_[1].Init(0.37f, LfoWave::SmoothRandom);
-    spring_lfo_[2].Init(0.44f, LfoWave::SmoothRandom);
+    spring_lfo_[0].Init(0.60f, LfoWave::SmoothRandom);
+    spring_lfo_[1].Init(0.74f, LfoWave::SmoothRandom);
+    spring_lfo_[2].Init(0.88f, LfoWave::SmoothRandom);
     spring_lfo_[0].SetJitter(0.3f);
     spring_lfo_[1].SetJitter(0.3f);
     spring_lfo_[2].SetJitter(0.3f);
@@ -105,11 +106,11 @@ void SpringReverb::Reset() {
         ap_[1][s].SetDelay(kApDelays1[s]);
         ap_[2][s].SetDelay(kApDelays2[s]);
     }
-    comb_[0].SetDelay(4000);
-    comb_[1].SetDelay(4280);
-    comb_[2].SetDelay(4520);
-    tone_[0].Init();
-    tone_[1].Init();
+    comb_[0].SetDelay(2000);
+    comb_[1].SetDelay(2140);
+    comb_[2].SetDelay(2260);
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
     hold_ = false;
     spring_lfo_[0].Reset();
     spring_lfo_[1].Reset();
@@ -118,15 +119,19 @@ void SpringReverb::Reset() {
 
 void SpringReverb::Prepare(const ParamSet& params) {
     // Comb feedback from decay: g = exp(-6.9078 * comb_delay_s / decay_s)
-    // comb_delay_s[0] = 4000/48000, [1] = 4280/48000, [2] = 4520/48000
+    // Comb delays execute in the 24 kHz reverb stage.
     static constexpr float kCombDelayS[3] = {
-        4000.0f / 48000.0f,
-        4280.0f / 48000.0f,
-        4520.0f / 48000.0f,
+        2000.0f / REVERB_SAMPLE_RATE,
+        2140.0f / REVERB_SAMPLE_RATE,
+        2260.0f / REVERB_SAMPLE_RATE,
     };
     const float decay = params.decay < 0.01f ? 0.01f : params.decay;
     for (int sp = 0; sp < 3; ++sp) {
-        comb_fb_[sp] = hold_ ? 1.0f : std::exp(-6.9078f * kCombDelayS[sp] / decay);
+        const float nominal_fb = std::exp(-6.9078f * kCombDelayS[sp] / decay);
+        comb_fb_[sp] = hold_ ? 1.0f : nominal_fb;
+        float makeup = sqrtf(1.0f - nominal_fb * nominal_fb);
+        if (makeup < 0.12f) makeup = 0.12f;
+        comb_makeup_[sp] = makeup;
     }
 
     const float damp = 0.15f + params.tone * 0.3f;
@@ -172,8 +177,7 @@ StereoFrame SpringReverb::Process(float input, const ParamSet& params) {
         const float lfo_val   = spring_lfo_[sp].Process();
         const float mod_delay = static_cast<float>(ap_delays[5]) + lfo_val * mod_depth_;
         s = ap_[sp][5].ProcessMod(s, kApG[5], mod_delay);
-        // Feedback comb; (1-fb) normalization bounds resonant peak to unity
-        const float c = comb_[sp].Process(s) * (1.0f - comb_fb_[sp]);
+        const float c = comb_[sp].Process(s) * comb_makeup_[sp];
         // Alternate L/R per spring
         if (sp == 0)      { out_l += c; out_r += c * 0.7f; }
         else if (sp == 1) { out_l += c * 0.6f; out_r += c; }

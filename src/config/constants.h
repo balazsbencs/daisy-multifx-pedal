@@ -7,6 +7,8 @@ namespace pedal {
 constexpr float  SAMPLE_RATE     = 48000.0f;
 constexpr size_t BLOCK_SIZE      = 48;
 constexpr float  INV_SAMPLE_RATE = 1.0f / SAMPLE_RATE;
+constexpr float  REVERB_SAMPLE_RATE     = SAMPLE_RATE * 0.5f;
+constexpr float  INV_REVERB_SAMPLE_RATE = 1.0f / REVERB_SAMPLE_RATE;
 
 // Delay: supports up to 3s; time range is 60ms–2500ms (2ms min for Lofi)
 constexpr size_t MAX_DELAY_SAMPLES = static_cast<size_t>(SAMPLE_RATE * 3.0f);

@@ -1,5 +1,6 @@
 #include "filter_mode.h"
 #include "../config/constants.h"
+#include "../dsp/fast_math.h"
 #include <cmath>
 
 using namespace pedal::mod_fx;
@@ -90,9 +91,7 @@ StereoFrame FilterMode::Process(StereoFrame input, const ParamSet& params) {
         default: wet = svf_.lp();    break;
     }
 
-    // Soft-clip to tame high-Q resonance peaks
-    if (wet >  1.0f) wet =  1.0f;
-    if (wet < -1.0f) wet = -1.0f;
+    wet = soft_clip_tanh(wet);
 
     wet = dc_.Process(wet);
     return {wet, wet};

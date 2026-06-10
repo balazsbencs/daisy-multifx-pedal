@@ -122,24 +122,35 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
         if (delay_mode_ && p.fx_enabled[1]) {
             const StereoFrame wet = delay_mode_->Process(s1.left, p.delay);
             s2.left  = (s1.left * dly_dry_ + wet.left  * dly_wet_) * dly_norm_;
-            s2.right = (s1.left * dly_dry_ + wet.right * dly_wet_) * dly_norm_;
+            s2.right = (s1.right * dly_dry_ + wet.right * dly_wet_) * dly_norm_;
         } else {
             s2 = s1;
         }
 
         // Stage 3: reverb sub-sampled at 24 kHz (every other sample).
-        // Reverb tails change slowly enough that holding the output for 2 samples
-        // is inaudible; this halves the per-sample reverb CPU cost.
+        // Average input pairs for cheap anti-aliasing and interpolate the output
+        // pair instead of a zero-order hold.
         StereoFrame s3;
         if (reverb_mode_ && p.fx_enabled[2]) {
             reverb_phase_ = !reverb_phase_;
+            reverb_input_sum_ += s2.left;
+            StereoFrame wet;
             if (reverb_phase_) {
-                reverb_last_ = reverb_mode_->Process(s2.left, p.reverb);
+                wet = {
+                    0.5f * (reverb_prev_.left + reverb_last_.left),
+                    0.5f * (reverb_prev_.right + reverb_last_.right)
+                };
+            } else {
+                reverb_prev_ = reverb_last_;
+                reverb_last_ = reverb_mode_->Process(0.5f * reverb_input_sum_, p.reverb);
+                reverb_input_sum_ = 0.0f;
+                wet = reverb_last_;
             }
-            s3.left  = (s2.left * rev_dry_ + reverb_last_.left  * rev_wet_) * rev_norm_;
-            s3.right = (s2.left * rev_dry_ + reverb_last_.right * rev_wet_) * rev_norm_;
+            s3.left  = (s2.left  * rev_dry_ + wet.left  * rev_wet_) * rev_norm_;
+            s3.right = (s2.right * rev_dry_ + wet.right * rev_wet_) * rev_norm_;
         } else {
             s3 = s2;
+            reverb_input_sum_ = 0.0f;
         }
 
         OUT_L[i] = s3.left;

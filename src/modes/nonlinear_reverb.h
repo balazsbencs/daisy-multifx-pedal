@@ -4,6 +4,7 @@
 #include "../dsp/diffuser.h"
 #include "../dsp/fdn.h"
 #include "../dsp/tone_filter.h"
+#include "../dsp/envelope_follower.h"
 
 namespace pedal {
 
@@ -20,7 +21,10 @@ private:
     Diffuser       diffuser_;
     Fdn            fdn_;
     ToneFilter     tone_[2];
+    EnvelopeFollower input_env_;
     float          shape_phase_ = 0.0f;
+    float          input_env_slow_ = 0.0f;
+    float          shape_gain_smooth_ = 0.0f;
     float          decay_rate_  = 0.0f;
 };
 

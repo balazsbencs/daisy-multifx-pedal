@@ -22,14 +22,14 @@ static float DSY_SDRAM_BSS buf_fdn3[4799];
 
 // ER tap table: 8 taps, typical small-room reflections
 static constexpr ErTap kErTaps[] = {
-    {336,  0.80f, -0.70f},
-    {624,  0.70f,  0.70f},
-    {912,  0.60f, -0.50f},
-    {1392, 0.50f,  0.50f},
-    {1776, 0.40f, -0.85f},
-    {2256, 0.35f,  0.85f},
-    {2832, 0.28f, -0.30f},
-    {3504, 0.22f,  0.30f},
+    {168,  0.80f, -0.70f},
+    {312,  0.70f,  0.70f},
+    {456,  0.60f, -0.50f},
+    {696,  0.50f,  0.50f},
+    {888,  0.40f, -0.85f},
+    {1128, 0.35f,  0.85f},
+    {1416, 0.28f, -0.30f},
+    {1752, 0.22f,  0.30f},
 };
 
 } // namespace
@@ -50,11 +50,11 @@ void RoomReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 1907;
-    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 2593;
-    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 3697;
-    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 4799;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 954;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 1297;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 1849;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 2400;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -72,7 +72,7 @@ void RoomReverb::Reset() {
 }
 
 void RoomReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     const float rounded = (delay_samples < 1.0f ? 1.0f : delay_samples) + 0.5f;
     pre_delay_.SetDelay(static_cast<float>(static_cast<size_t>(rounded)));
     fdn_.SetDecay(params.decay);

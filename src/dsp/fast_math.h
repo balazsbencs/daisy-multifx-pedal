@@ -43,4 +43,12 @@ inline float lcg_to_float(uint32_t state) noexcept {
     return static_cast<float>(static_cast<int32_t>(state)) * (1.0f / 2147483648.0f);
 }
 
+/// Fast tanh-like soft clip using a Padé approximation.
+inline float soft_clip_tanh(float x) noexcept {
+    if (x <= -3.0f) return -1.0f;
+    if (x >=  3.0f) return  1.0f;
+    const float x2 = x * x;
+    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+}
+
 } // namespace pedal

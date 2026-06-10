@@ -7,6 +7,8 @@ namespace mode_ranges {
     constexpr ParamRange SPEED_VINTTREM  = {1.0f,  15.0f, 1.0f};
     constexpr ParamRange SPEED_DESTROYER = {1.0f,  48.0f, 1.0f};
     constexpr ParamRange SPEED_PATTREM   = {0.5f,   8.0f, 1.0f};
+    constexpr ParamRange SPEED_AUTOSWELL = {0.01f,  0.5f, 1.0f};
+    constexpr ParamRange SPEED_QUAD      = {0.1f, 1000.0f, 2.0f};
 }
 
 const ParamRange& get_param_range(ModModeId mode, ParamId param) {
@@ -15,6 +17,8 @@ const ParamRange& get_param_range(ModModeId mode, ParamId param) {
             case ModModeId::VintTrem:    return mode_ranges::SPEED_VINTTREM;
             case ModModeId::Destroyer:   return mode_ranges::SPEED_DESTROYER;
             case ModModeId::PatternTrem: return mode_ranges::SPEED_PATTREM;
+            case ModModeId::AutoSwell:   return mode_ranges::SPEED_AUTOSWELL;
+            case ModModeId::Quadrature:  return mode_ranges::SPEED_QUAD;
             default: break;
         }
     }
