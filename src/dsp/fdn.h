@@ -11,6 +11,7 @@ namespace pedal {
 class Fdn {
 public:
     static constexpr int MAX_LINES = 8;
+    static constexpr float MAX_MOD_DEPTH_SAMPLES = 8.0f;
 
     struct Config {
         // Must be 4 or 8; other values fall back to 4-line Hadamard mixing.
@@ -31,7 +32,7 @@ public:
     // Sets per-line feedback gains for the target RT60 decay time.
     void SetDecay(float decay_s);
 
-    // One-pole LP coefficient in feedback path (0=none, higher=more damping).
+    // One-pole LP coefficient in feedback path (1=bright/bypass, lower=more damping).
     void SetDamping(float damp);
 
     // Compute damping from RT60 targets. hf_ratio: HF RT60 = rt60_lf_s * hf_ratio.

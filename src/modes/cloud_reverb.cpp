@@ -47,11 +47,11 @@ void CloudReverb::Init() {
 
     Fdn::Config fdn_cfg;
     fdn_cfg.n_lines     = 4;
-    fdn_cfg.sample_rate = SAMPLE_RATE;
-    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 4801;
-    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 6151;
-    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 7699;
-    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 9001;
+    fdn_cfg.sample_rate = REVERB_SAMPLE_RATE;
+    fdn_cfg.bufs[0]     = buf_fdn0;   fdn_cfg.delays[0] = 2401;
+    fdn_cfg.bufs[1]     = buf_fdn1;   fdn_cfg.delays[1] = 3076;
+    fdn_cfg.bufs[2]     = buf_fdn2;   fdn_cfg.delays[2] = 3850;
+    fdn_cfg.bufs[3]     = buf_fdn3;   fdn_cfg.delays[3] = 4501;
     for (int i = 4; i < Fdn::MAX_LINES; ++i) {
         fdn_cfg.bufs[i]   = nullptr;
         fdn_cfg.delays[i] = 0;
@@ -60,8 +60,8 @@ void CloudReverb::Init() {
     fdn_.SetDecay(10.0f);
     fdn_.SetDamping(0.3f);
 
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
 }
 
 void CloudReverb::Reset() {
@@ -69,21 +69,21 @@ void CloudReverb::Reset() {
     diffuser0_.Reset();
     diffuser1_.Reset();
     fdn_.Reset();
-    tone_[0].Init();
-    tone_[1].Init();
+    tone_[0].Init(REVERB_SAMPLE_RATE);
+    tone_[1].Init(REVERB_SAMPLE_RATE);
 }
 
 void CloudReverb::Prepare(const ParamSet& params) {
-    const float delay_samples = params.pre_delay * SAMPLE_RATE;
+    const float delay_samples = params.pre_delay * REVERB_SAMPLE_RATE;
     pre_delay_.SetDelay(delay_samples < 1.0f ? 1.0f : delay_samples);
     fdn_.SetDecay(params.decay);
-    fdn_.SetModulation(params.mod * 20.0f);
+    fdn_.SetModulation(params.mod * Fdn::MAX_MOD_DEPTH_SAMPLES);
 
     const float diff = 0.5f + params.param1 * 0.35f;
     diffuser0_.SetDiffusion(diff);
     diffuser1_.SetDiffusion(diff);
 
-    const float damp = 0.1f + params.param2 * 0.4f;
+    const float damp = 0.5f - params.param2 * 0.4f;
     fdn_.SetDamping(damp);
 
     tone_[0].SetKnob(params.tone);

@@ -7,8 +7,8 @@ static constexpr float kButterworthQ = 0.707106781f;  // 1/sqrt(2): maximally fl
 
 void ToneFilter::ComputeLpCoeffs(float fc, float q,
                                   float& b0, float& b1, float& b2,
-                                  float& a1, float& a2) {
-    const float w0    = kTwoPi * fc * INV_SAMPLE_RATE;
+                                  float& a1, float& a2) const {
+    const float w0    = kTwoPi * fc * inv_sample_rate_;
     const float alpha = sinf(w0) / (2.0f * q);
     const float cw    = cosf(w0);
     const float inv_a0 = 1.0f / (1.0f + alpha);
@@ -21,8 +21,8 @@ void ToneFilter::ComputeLpCoeffs(float fc, float q,
 
 void ToneFilter::ComputeHpCoeffs(float fc, float q,
                                   float& b0, float& b1, float& b2,
-                                  float& a1, float& a2) {
-    const float w0    = kTwoPi * fc * INV_SAMPLE_RATE;
+                                  float& a1, float& a2) const {
+    const float w0    = kTwoPi * fc * inv_sample_rate_;
     const float alpha = sinf(w0) / (2.0f * q);
     const float cw    = cosf(w0);
     const float inv_a0 = 1.0f / (1.0f + alpha);
@@ -33,9 +33,11 @@ void ToneFilter::ComputeHpCoeffs(float fc, float q,
     a2 = (1.0f - alpha) * inv_a0;
 }
 
-void ToneFilter::Init() {
+void ToneFilter::Init(float sample_rate) {
+    inv_sample_rate_ = sample_rate > 0.0f ? (1.0f / sample_rate) : INV_SAMPLE_RATE;
     lp_s1_ = lp_s2_ = 0.0f;
     hp_s1_ = hp_s2_ = 0.0f;
+    last_knob_ = -1.0f;
     SetKnob(0.5f);
 }
 

@@ -43,50 +43,51 @@ static float DSY_SDRAM_BSS buf_d8 [5100];   // delay 5099
 } // namespace
 
 // ---------------------------------------------------------------------------
-// Delay / tap constants (samples at 48 kHz)
+// Delay / tap constants (originally scaled to 48 kHz, executed by the 24 kHz
+// reverb stage).
 // ---------------------------------------------------------------------------
 namespace {
 
 // Input diffuser delays
-constexpr size_t kIdif0 = 229;
-constexpr size_t kIdif1 = 173;
-constexpr size_t kIdif2 = 611;
-constexpr size_t kIdif3 = 447;
+constexpr size_t kIdif0 = 115;
+constexpr size_t kIdif1 = 87;
+constexpr size_t kIdif2 = 306;
+constexpr size_t kIdif3 = 224;
 
 // AP5/AP6 modulated allpass centre delays; LFO depth set per-block from param1
-constexpr float kAp5Centre  = 1084.0f;
-constexpr float kAp6Centre  = 1465.0f;
+constexpr float kAp5Centre  = 542.0f;
+constexpr float kAp6Centre  = 732.5f;
 
 // Tank A delays
-constexpr float kD5Delay = 7181.0f;
-constexpr size_t kAp7    = 2903;
-constexpr float kD6Delay = 6000.0f;
+constexpr float kD5Delay = 3590.5f;
+constexpr size_t kAp7    = 1452;
+constexpr float kD6Delay = 3000.0f;
 
 // Tank B delays
-constexpr float kD7Delay = 6800.0f;
-constexpr size_t kAp8    = 4284;
-constexpr float kD8Delay = 5099.0f;
+constexpr float kD7Delay = 3400.0f;
+constexpr size_t kAp8    = 2142;
+constexpr float kD8Delay = 2549.5f;
 
 // Output tap read positions — read BEFORE the corresponding Write() this sample.
 // Left out  = +D5[429] + D5[4797] – AP7_out – D6[3086] + D7[3210] – D7[302]  – AP8_out
 // Right out = +D7[569] + D7[5852] – AP8_out – D8[1981] + D5[4311] – D5[3210] – AP7_out
-constexpr float kD5TapL0 = 429.0f;
-constexpr float kD5TapL1 = 4797.0f;
-constexpr float kD6TapL  = 3086.0f;
-constexpr float kD7TapL0 = 3210.0f;
-constexpr float kD7TapL1 = 302.0f;
+constexpr float kD5TapL0 = 214.5f;
+constexpr float kD5TapL1 = 2398.5f;
+constexpr float kD6TapL  = 1543.0f;
+constexpr float kD7TapL0 = 1605.0f;
+constexpr float kD7TapL1 = 151.0f;
 
-constexpr float kD7TapR0 = 569.0f;
-constexpr float kD7TapR1 = 5852.0f;
-constexpr float kD8TapR  = 1981.0f;
-constexpr float kD5TapR0 = 4311.0f;
-constexpr float kD5TapR1 = 3210.0f;
+constexpr float kD7TapR0 = 284.5f;
+constexpr float kD7TapR1 = 2926.0f;
+constexpr float kD8TapR  = 990.5f;
+constexpr float kD5TapR0 = 2155.5f;
+constexpr float kD5TapR1 = 1605.0f;
 
 // Output normalisation: sum of 7 taps per channel, empirically tuned to ~0dB
 constexpr float kOutGain = 0.35f;
 
-// RT60 → decay: average tank round-trip ≈ (7181+6000+6800+5099)/(4×48000) s
-constexpr float kAvgTankSec = (7181.0f + 6000.0f + 6800.0f + 5099.0f) / (4.0f * SAMPLE_RATE);
+// RT60 -> decay: use the actual reverb processing rate.
+constexpr float kAvgTankSec = (kD5Delay + kD6Delay + kD7Delay + kD8Delay) / (4.0f * REVERB_SAMPLE_RATE);
 
 } // namespace
 
@@ -110,8 +111,8 @@ void PlateReverb::Init() {
     d8_ .Init(buf_d8,  5100);
 
     // Quadrature LFOs: A at 0°, B at 90°
-    lfo_a_.Init(0.5f, LfoWave::Sine);
-    lfo_b_.Init(0.5f, LfoWave::Sine);
+    lfo_a_.Init(1.0f, LfoWave::Sine);
+    lfo_b_.Init(1.0f, LfoWave::Sine);
     lfo_b_.SetPhaseOffset(1.5707963f);  // π/2
 
     lp_a_ = lp_b_ = 0.0f;
@@ -134,7 +135,7 @@ void PlateReverb::Reset() {
 }
 
 void PlateReverb::Prepare(const ParamSet& params) {
-    pre_delay_samp_ = static_cast<size_t>(params.pre_delay * SAMPLE_RATE);
+    pre_delay_samp_ = static_cast<size_t>(params.pre_delay * REVERB_SAMPLE_RATE);
     if (pre_delay_samp_ >= 24000) pre_delay_samp_ = 23999;
 
     // RT60 → feedback coefficient
@@ -148,8 +149,8 @@ void PlateReverb::Prepare(const ParamSet& params) {
     const float mod_rate = 0.3f + params.mod * 1.7f;
     // Param1: 0 = tight studio plate (4 samples), 1 = lush shimmer (20 samples)
     mod_depth_ = 4.0f + params.param1 * 16.0f;
-    lfo_a_.SetRate(mod_rate);
-    lfo_b_.SetRate(mod_rate);
+    lfo_a_.SetRate(mod_rate * 2.0f);
+    lfo_b_.SetRate(mod_rate * 2.0f);
 
     // Param2: 0 = smooth (lower g, more transparent), 1 = raw (higher g, more direct)
     in_g_hi_ = 0.65f + params.param2 * 0.15f;  // 0.65 – 0.80
@@ -191,7 +192,7 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
     {
         const float lfo_a   = lfo_a_.Process();
         const float ap5_d   = kAp5Centre + mod_depth_ * lfo_a;
-        const float ta_in   = hold_ ? 0.0f : (s + decay_ * d8_fb);
+        const float ta_in   = (hold_ ? 0.0f : s) + decay_ * d8_fb;
         const float y_ap5   = ap5_.ProcessMod(ta_in, 0.70f, ap5_d);
         d5_.Write(y_ap5);
 
@@ -207,7 +208,7 @@ StereoFrame PlateReverb::Process(float input, const ParamSet& params) {
     {
         const float lfo_b   = lfo_b_.Process();
         const float ap6_d   = kAp6Centre + mod_depth_ * lfo_b;
-        const float tb_in   = hold_ ? 0.0f : (s + decay_ * d6_fb);
+        const float tb_in   = (hold_ ? 0.0f : s) + decay_ * d6_fb;
         const float y_ap6   = ap6_.ProcessMod(tb_in, 0.70f, ap6_d);
         d7_.Write(y_ap6);
 

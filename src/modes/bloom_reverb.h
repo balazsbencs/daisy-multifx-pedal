@@ -4,6 +4,7 @@
 #include "../dsp/diffuser.h"
 #include "../dsp/fdn.h"
 #include "../dsp/tone_filter.h"
+#include "../dsp/envelope_follower.h"
 
 namespace pedal {
 
@@ -22,7 +23,9 @@ private:
     Diffuser       diffuser_;
     Fdn            fdn_;
     ToneFilter     tone_[2];
+    EnvelopeFollower input_env_;
     float          bloom_env_         = 0.0f;
+    float          input_env_slow_    = 0.0f;
     float          bloom_rate_        = 0.0001f;
     float          bloom_feedback_    = 0.0f;   // param2-derived amount
     float          bloom_fb_signal_   = 0.0f;   // previous output fed back

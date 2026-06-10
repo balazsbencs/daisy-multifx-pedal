@@ -28,6 +28,7 @@ private:
     float              mod_depth_ = 0.0f;
     bool               hold_ = false;
     float              comb_fb_[3]{};
+    float              comb_makeup_[3]{};
 };
 
 } // namespace pedal

@@ -76,7 +76,11 @@ float PitchShifter::Process(float input) {
 
         if (grain_phase_[g] >= 1.0f) {
             grain_phase_[g] -= 1.0f;
-            read_pos_[g] = static_cast<float>(write_pos_);
+            float restart = static_cast<float>(write_pos_);
+            if (ratio_ > 1.0f) {
+                restart -= (ratio_ - 1.0f) * static_cast<float>(GRAIN_SIZE) + 4.0f;
+            }
+            read_pos_[g] = restart;
         }
     }
     return out;

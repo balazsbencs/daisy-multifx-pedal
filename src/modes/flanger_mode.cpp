@@ -8,14 +8,6 @@ using namespace pedal::mod_fx;
 
 namespace pedal {
 
-// Fast hyperbolic tangent approximation for soft clipping on STM32
-inline float SoftClipTanh(float x) {
-    if (x <= -3.0f) return -1.0f;
-    if (x >= 3.0f) return 1.0f;
-    float x2 = x * x;
-    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
-}
-
 // 10ms max delay = 480 samples + headroom
 static constexpr size_t kFlangerBufSize = 512;
 
@@ -155,8 +147,8 @@ StereoFrame FlangerMode::Process(StereoFrame input, const ParamSet& params) {
     float regen = params.p1 * 0.95f;
 
     // Soft clip the feedback to sound "analog" and prevent digital harshness
-    float fb_l = SoftClipTanh(wet_l_tap * regen * fb_sign_);
-    float fb_r = SoftClipTanh(wet_r_tap * regen * fb_sign_);
+    float fb_l = soft_clip_tanh(wet_l_tap * regen * fb_sign_);
+    float fb_r = soft_clip_tanh(wet_r_tap * regen * fb_sign_);
 
     // Apply our 1-pole Low Pass Filter to the feedback loop
     fb_l = fb_lpf_l_.Process(fb_l);

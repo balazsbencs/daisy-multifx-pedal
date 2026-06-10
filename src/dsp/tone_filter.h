@@ -8,19 +8,20 @@ namespace pedal {
 // knob: 0=dark LP, 0.5=flat, 1=bright HP blend
 class ToneFilter {
 public:
-    void Init();
+    void Init(float sample_rate = SAMPLE_RATE);
     void SetKnob(float knob);
     float Process(float sample);
 
 private:
-    static void ComputeLpCoeffs(float fc, float q,
-                                float& b0, float& b1, float& b2,
-                                float& a1, float& a2);
-    static void ComputeHpCoeffs(float fc, float q,
-                                float& b0, float& b1, float& b2,
-                                float& a1, float& a2);
+    void ComputeLpCoeffs(float fc, float q,
+                         float& b0, float& b1, float& b2,
+                         float& a1, float& a2) const;
+    void ComputeHpCoeffs(float fc, float q,
+                         float& b0, float& b1, float& b2,
+                         float& a1, float& a2) const;
 
     float last_knob_ = -1.0f;
+    float inv_sample_rate_ = INV_SAMPLE_RATE;
 
     // LP biquad (DF2T state)
     float lp_b0_ = 1.0f, lp_b1_ = 0.0f, lp_b2_ = 0.0f;

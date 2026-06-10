@@ -21,9 +21,16 @@ void Lfo::Init(float rate_hz, LfoWave wave) {
 }
 
 void Lfo::SetRate(float rate_hz) {
+    const float old_base = phase_inc_base_;
+    const float old_inc  = phase_inc_;
     phase_inc_base_ = TWO_PI * rate_hz * INV_SAMPLE_RATE;
     slew_coeff_     = 4.0f * rate_hz * INV_SAMPLE_RATE;
     if (slew_coeff_ > 1.0f) slew_coeff_ = 1.0f;
+    if (old_base > 0.0f && old_inc > 0.0f) {
+        phase_inc_ = phase_inc_base_ * (old_inc / old_base);
+    } else {
+        phase_inc_ = phase_inc_base_;
+    }
 }
 
 static float lfo_compute(float phase, LfoWave wave) {
@@ -84,7 +91,9 @@ float Lfo::PrepareBlock() {
     if (wave_ == LfoWave::SampleAndHold) {
         out = sh_value_;
     } else if (wave_ == LfoWave::SmoothRandom) {
-        smooth_value_ += slew_coeff_ * (sh_value_ - smooth_value_);
+        float block_slew = slew_coeff_ * static_cast<float>(BLOCK_SIZE);
+        if (block_slew > 1.0f) block_slew = 1.0f;
+        smooth_value_ += block_slew * (sh_value_ - smooth_value_);
         out = smooth_value_;
     } else {
         out = lfo_compute(phase_, wave_);

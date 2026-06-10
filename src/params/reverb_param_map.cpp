@@ -47,7 +47,8 @@ const ParamRange& get_param_range(ReverbModeId mode, ParamId param) {
     }
 
     switch (param) {
-        case ParamId::PreDelay: return default_ranges::PRE_DELAY;
+        case ParamId::PreDelay:
+            return mode == ReverbModeId::Magneto ? default_ranges::FEEDBACK : default_ranges::PRE_DELAY;
         case ParamId::Mix:      return default_ranges::MIX;
         case ParamId::Tone:     return default_ranges::TONE;
         case ParamId::Mod:      return default_ranges::MOD;
