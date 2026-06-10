@@ -108,6 +108,8 @@ TAP footswitch      Exit Browse mode
 
 ## MIDI control
 
+For the complete wire-level protocol (exact byte frames, 7-bit encoding, live state broadcast) see [`MIDI_USB.md`](MIDI_USB.md).
+
 ### SysEx (USB MIDI)
 
 The pedal responds to SysEx messages with manufacturer ID `0x7D`. All
