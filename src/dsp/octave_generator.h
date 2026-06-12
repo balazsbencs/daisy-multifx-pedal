@@ -12,7 +12,9 @@
 class OctaveGenerator
 {
 public:
-    static constexpr int kNumBands = 80;
+    // Reduced from 80 to 48 bands (same frequency coverage, ~40% less CPU).
+    // Frequency step adjusted from 0.027 to 0.0453 to preserve the 60–1650 Hz range.
+    static constexpr int kNumBands = 48;
 
     OctaveGenerator() = default;
 
@@ -49,7 +51,7 @@ private:
     // Log-spaced center frequencies from ~60 Hz to ~7 kHz.
     static float centerFreq(int n)
     {
-        return 480.0f * std::pow(2.0f, 0.027f * n) - 420.0f;
+        return 480.0f * std::pow(2.0f, 0.0453f * n) - 420.0f;
     }
 
     static float bandwidth(int n)

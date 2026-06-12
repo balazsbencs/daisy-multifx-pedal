@@ -11,6 +11,9 @@ class Svf {
 public:
     void Reset() { ic1eq_ = 0.0f; ic2eq_ = 0.0f; }
 
+    /// Set g directly (g = tan(π·f/fs)). Avoids tanf(); use when g is already precomputed.
+    void SetG(float g) noexcept { g_ = g; UpdateCoeffs(); }
+
     /// Set cutoff frequency in Hz. Call from Prepare(), not per-sample.
     void SetFreq(float freq_hz) {
         // Clamp to Nyquist - small margin to stay stable

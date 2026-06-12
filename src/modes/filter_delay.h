@@ -29,6 +29,9 @@ private:
     float     delay_smooth_r_ = 0.0f;
     float     target_delay_    = 0.0f;
     float     filter_fb_gain_  = 1.0f;
+    // Precomputed g = tan(π·f/fs) bounds for LFO sweep — avoids per-sample tanf().
+    float     g_lo_ = 0.05f;
+    float     g_hi_ = 0.05f;
 
 };
 

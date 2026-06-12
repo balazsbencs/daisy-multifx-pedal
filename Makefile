@@ -63,6 +63,7 @@ CPP_SOURCES = \
     src/display/st7789_driver.cpp \
     src/display/display_renderer.cpp \
     src/display/display_manager.cpp \
+    src/presets/browse_machine.cpp \
     src/presets/qspi_preset_store.cpp \
     src/tempo/tap_tempo.cpp \
     src/tempo/tempo_sync.cpp

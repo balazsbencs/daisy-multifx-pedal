@@ -6,10 +6,12 @@ namespace pedal {
 // RGB565 colors in natural (host) byte order.
 // The renderer swaps bytes on every write so SPI DMA delivers big-endian pixels.
 
-constexpr uint16_t kColorBlack = 0x0000;
-constexpr uint16_t kColorWhite = 0xFFFF;
-constexpr uint16_t kColorDim   = 0x4208;  // mid-grey, used for disabled/off states
-constexpr uint16_t kColorRed   = 0xF800;
+constexpr uint16_t kColorBlack  = 0x0000;
+constexpr uint16_t kColorWhite  = 0xFFFF;
+constexpr uint16_t kColorDim    = 0x4208;  // mid-grey, used for disabled/off states
+constexpr uint16_t kColorRed    = 0xF800;
+constexpr uint16_t kColorYellow = 0xFFE0;
+constexpr uint16_t kColorGreen  = 0x07E0;
 
 // Per-mode accent colors (RGB565, natural order).
 // Controlled by DISPLAY_MODE_COLORS compile flag; monochrome fallback otherwise.

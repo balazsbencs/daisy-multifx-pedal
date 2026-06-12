@@ -6,6 +6,32 @@ namespace pedal {
 // File-scope 4 KB buffer reused by SaveSlot to avoid stack usage.
 static uint8_t s_sector_buf[4096];
 
+// ── QSPI execute-in-place (XIP) safety ─────────────────────────────────────────
+// This firmware runs from QSPI flash (APP_TYPE = BOOT_QSPI). While the QSPI
+// controller performs an erase or program it leaves memory-mapped mode, so the
+// CPU cannot fetch *any* code or data from 0x90xxxxxx until XIP is restored.
+// libDaisy's Erase/Write keep working only because the small write routine is
+// already resident in the I-cache. The hazard is interrupts: if the audio SAI
+// DMA ISR (≈1 ms period) or a USB ISR fires during the erase/program window,
+// the core tries to fetch the (uncached) handler from a flash that cannot
+// service reads and stalls forever — a hard freeze. Because it depends on ISR
+// timing relative to the erase window, the freeze is intermittent.
+//
+// Masking interrupts for the duration of the erase+program eliminates the race:
+// no vector/handler fetch can occur until EraseSector()/Write() have restored
+// memory-mapped mode. The cost is a brief audio dropout (one sector erase, a
+// few hundred ms at most) which is acceptable for an occasional preset save.
+// System::GetNow() reads a free-running hardware timer (not ISR-incremented),
+// so timekeeping survives the masked window.
+static void EraseWriteXipSafe(daisy::QSPIHandle& qspi,
+                              uint32_t address, size_t size, uint8_t* data) {
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    qspi.EraseSector(address);
+    qspi.Write(address, static_cast<uint32_t>(size), data);
+    __set_PRIMASK(primask); // re-enable IRQs only if they were enabled before
+}
+
 struct PresetHeader {
     uint32_t magic;
     uint16_t version;
@@ -45,9 +71,13 @@ void QspiPresetStore::WriteHeader() {
     h.active_bank = static_cast<uint8_t>(active_bank_);
     h.active_slot = static_cast<uint8_t>(active_slot_);
     memcpy(h.name, names_, sizeof(names_));
-    qspi_->EraseSector(kQspiBase + kHeaderOffset);
-    qspi_->Write(kQspiBase + kHeaderOffset, sizeof(h),
-                 reinterpret_cast<uint8_t*>(&h));
+    EraseWriteXipSafe(*qspi_, kQspiBase + kHeaderOffset, sizeof(h),
+                      reinterpret_cast<uint8_t*>(&h));
+    // After QSPI peripheral write, STM32H7 D-Cache may hold stale XIP-mapped
+    // lines.  Invalidate so the next memory-mapped read goes to hardware.
+    SCB_InvalidateDCache_by_Addr(
+        reinterpret_cast<uint32_t*>(kQspiBase + kHeaderOffset),
+        static_cast<int32_t>(kSectorSize));
 }
 
 void QspiPresetStore::SetActive(int bank, int slot) {
@@ -92,8 +122,10 @@ bool QspiPresetStore::SaveSlot(int bank, int slot, const MultiPresetSlot& data,
         names_[idx][11] = '\0';
     }
 
-    qspi_->EraseSector(sector_addr);
-    qspi_->Write(sector_addr, kSectorSize, s_sector_buf);
+    EraseWriteXipSafe(*qspi_, sector_addr, kSectorSize, s_sector_buf);
+    SCB_InvalidateDCache_by_Addr(
+        reinterpret_cast<uint32_t*>(sector_addr),
+        static_cast<int32_t>(kSectorSize));
     WriteHeader(); // persists updated names and active bank/slot
     return true;
 }
@@ -112,9 +144,11 @@ bool QspiPresetStore::SaveLiveState(const MultiPresetSlot& data) {
     static MultiPresetSlot buf;
     buf       = data;
     buf.valid = 1;
-    qspi_->EraseSector(kQspiBase + kLiveOffset);
-    qspi_->Write(kQspiBase + kLiveOffset, sizeof(buf),
-                 reinterpret_cast<uint8_t*>(&buf));
+    EraseWriteXipSafe(*qspi_, kQspiBase + kLiveOffset, sizeof(buf),
+                      reinterpret_cast<uint8_t*>(&buf));
+    SCB_InvalidateDCache_by_Addr(
+        reinterpret_cast<uint32_t*>(kQspiBase + kLiveOffset),
+        static_cast<int32_t>(kSectorSize));
     return true;
 }
 

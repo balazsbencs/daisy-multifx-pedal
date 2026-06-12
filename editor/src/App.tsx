@@ -17,8 +17,6 @@ function paramsEqual(a: number[], b: number[]) {
 }
 
 export default function App() {
-  const midi = useMidi();
-
   const [modMode,    setModMode]    = useState(0);
   const [delayMode,  setDelayMode]  = useState(0);
   const [reverbMode, setReverbMode] = useState(0);
@@ -33,6 +31,18 @@ export default function App() {
   const [isSaving,       setIsSaving]       = useState(false);
   const [saveError,      setSaveError]      = useState<string | null>(null);
   const [exportOpen,     setExportOpen]     = useState(false);
+
+  // Hardware knob → UI: update sliders without echoing CC back to the device.
+  const onCC = useCallback(
+    (stage: "mod" | "delay" | "reverb", paramIndex: number, normalised: number) => {
+      if (stage === "mod")    setModParams(p    => { const n = [...p]; n[paramIndex] = normalised; return n; });
+      if (stage === "delay")  setDelayParams(p  => { const n = [...p]; n[paramIndex] = normalised; return n; });
+      if (stage === "reverb") setReverbParams(p => { const n = [...p]; n[paramIndex] = normalised; return n; });
+    },
+    []
+  );
+
+  const midi = useMidi({ onCC });
 
   useEffect(() => { midi.refreshPorts(); }, []);
 
@@ -112,12 +122,20 @@ export default function App() {
 
   const handlePresetSelect = useCallback(
     async (bank: number, slot: number) => {
-      const result = await midi.loadPreset(bank, slot);
-      if (!result) return;
+      // Highlight the slot immediately — don't wait for sysex response.
       setActivePreset({ bank, slot });
       setSaveError(null);
+
+      const result = await midi.loadPreset(bank, slot);
+      if (!result) {
+        // No cached data and no sysex response within timeout.
+        // Firmware broadcasts a liveState update (hw_live_state_dirty) after
+        // processing SET_ACTIVE; the liveState effect will then sync params.
+        setLoadedSnapshot(null);
+        setPresetName(midi.presets[bank * 10 + slot]?.name ?? "");
+        return;
+      }
       if (result.valid === 0) {
-        // Empty slot — keep current knob state, anchor the slot for saving
         setLoadedSnapshot(null);
         setPresetName("");
       } else {
@@ -185,10 +203,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 flex flex-col gap-4">
+      {midi.connected && midi.inputConnected === false && (
+        <div className="bg-amber-900/60 border border-amber-600 text-amber-200 text-sm px-3 py-2 rounded">
+          Output-only connection — SysEx responses unavailable. Preset load/save will not work. Try reconnecting after the device enumerates both ports.
+        </div>
+      )}
       <PresetHeader
         connected={midi.connected}
         ports={midi.ports}
         onConnect={handleConnect}
+        onDisconnect={midi.disconnect}
+        onReconnect={midi.reconnect}
         onRefresh={midi.refreshPorts}
         activePreset={activePreset}
         presetName={presetName}

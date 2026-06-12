@@ -63,13 +63,28 @@ void DisplayManager::Update(int           active_page,
                             int           preset_slot,
                             PresetUiEvent preset_event,
                             bool          in_browse,
-                            uint32_t      now_ms) {
+                            uint32_t      now_ms,
+                            float         cpu_load,
+                            uint32_t      midi_rx_count) {
     (void)now_ms;
     if (driver_.IsBusy()) return;
 
     Render(active_page, shift, mod_mode, delay_mode, reverb_mode,
            mod_params, delay_params, reverb_params,
-           fx_enabled, hold_active, preset_slot, preset_event, in_browse);
+           fx_enabled, hold_active, preset_slot, preset_event, in_browse, cpu_load);
+
+    // ── Diagnostic: live MIDI RX counter ────────────────────────────────────
+    // Ticks up on every MIDI message the device receives (host or DIN). Moving
+    // an editor control should increment it — proves host→device messages land.
+    {
+        const uint32_t c = midi_rx_count % 1000u;
+        char b[6] = { 'R', 'X',
+                      static_cast<char>('0' + (c / 100u)),
+                      static_cast<char>('0' + ((c / 10u) % 10u)),
+                      static_cast<char>('0' + (c % 10u)), '\0' };
+        const uint16_t col = (midi_rx_count > 0u) ? kColorGreen : kColorDim;
+        DisplayRenderer::DrawText(120, 38, b, col, kColorBlack, Font_6x8);
+    }
 
     driver_.StartDmaTransfer(DisplayRenderer::FrameBuffer(),
                              DisplayRenderer::FrameBufferBytes(),
@@ -90,7 +105,8 @@ void DisplayManager::Render(int           active_page,
                             bool          hold_active,
                             int           preset_slot,
                             PresetUiEvent preset_event,
-                            bool          in_browse) {
+                            bool          in_browse,
+                            float         cpu_load) {
     if (active_page < 0 || active_page > 2) return;
     const uint16_t accent = kPageAccent[active_page];
     DisplayRenderer::Clear(kColorBlack);
@@ -116,6 +132,21 @@ void DisplayManager::Render(int           active_page,
     DisplayRenderer::DrawText(layout::MODE_X, layout::MODE_Y,
                               mode_name, accent, kColorBlack, Font_11x18);
 
+    // ── CPU load: "XX%" right-aligned in mode name row, green/yellow/red ─────
+    {
+        const int pct     = static_cast<int>(cpu_load * 100.0f);
+        const int clamped = pct > 99 ? 99 : (pct < 0 ? 0 : pct);
+        char cpu_buf[4];
+        cpu_buf[0] = static_cast<char>('0' + clamped / 10);
+        cpu_buf[1] = static_cast<char>('0' + clamped % 10);
+        cpu_buf[2] = '%';
+        cpu_buf[3] = '\0';
+        const uint16_t cpu_col = (pct >= 80) ? kColorRed
+                                : (pct >= 50) ? kColorYellow
+                                :               kColorGreen;
+        DisplayRenderer::DrawText(203, layout::MODE_Y, cpu_buf, cpu_col, kColorBlack, Font_11x18);
+    }
+
     // ── Separator lines ────────────────────────────────────────────────────────
     DisplayRenderer::HLine(0, layout::SEP1_Y, layout::SCREEN_W, kColorWhite);
     DisplayRenderer::HLine(0, layout::SEP2_Y, layout::SCREEN_W, kColorWhite);
@@ -138,6 +169,7 @@ void DisplayManager::Render(int           active_page,
         {"REGEN",  "P2"},      // Vibe
         {"REGEN",  "STAGES"},  // Phaser
         {"P1",     "TYPE"},    // VintTrem
+        {"OCT UP", "OCT DN"},  // PolyOctave
     };
 
     // Apply per-mode overrides for MOD page

@@ -9,16 +9,19 @@ use midi::MidiState;
 
 fn main() {
     let midi_state = Arc::new(Mutex::new(MidiState::new()));
+    let watch_state = Arc::clone(&midi_state);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(midi_state)
-        .setup(|app| {
-            midi::watch_ports(app.handle().clone());
+        .setup(move |app| {
+            midi::watch_ports(app.handle().clone(), watch_state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_midi_ports,
             commands::connect_midi,
+            commands::disconnect_midi,
             commands::send_cc,
             commands::get_preset,
             commands::put_preset,
