@@ -7,7 +7,8 @@ using namespace daisy;
 
 namespace pedal {
 
-AudioEngine* AudioEngine::instance_ = nullptr;
+AudioEngine*  AudioEngine::instance_  = nullptr;
+volatile float AudioEngine::cpu_usage_ = 0.0f;
 
 void AudioEngine::Init(DaisySeed* hw) {
     hw_              = hw;
@@ -159,6 +160,7 @@ void AudioEngine::ProcessBlock(AudioHandle::InputBuffer  in,
 
     const uint32_t t1 = DWT->CYCCNT;
     const uint32_t elapsed = t1 - t0;
+    cpu_usage_ = static_cast<float>(elapsed) / static_cast<float>(cycles_per_block_);
 }
 
 } // namespace pedal

@@ -2,10 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { parsePresetSlot, ParsedPreset } from "../lib/presetCodec";
-
-const CC_MOD_BASE    = 14;
-const CC_DELAY_BASE  = 21;
-const CC_REVERB_BASE = 28;
+import {
+  CC_MOD_BASE, CC_DELAY_BASE, CC_REVERB_BASE,
+  RESP_PRESET_DATA, RESP_LIVE_STATE, RESP_ACK,
+  parsePresetDataFrame, parseLiveStateFrame, parseAckFrame,
+  ccToMapping,
+} from "../lib/sysex";
 
 export interface PresetData {
   bank: number;
@@ -53,9 +55,17 @@ interface SavePending {
   rawData: Uint8Array;
 }
 
-export function useMidi() {
+export interface UseMidiOptions {
+  /** Called whenever the hardware sends a CC that maps to a known parameter.
+   *  Normalised value is in [0, 1]. Do NOT send CC back to the device inside
+   *  this callback — that would create a feedback loop. */
+  onCC?: (stage: "mod" | "delay" | "reverb", paramIndex: number, normalised: number) => void;
+}
+
+export function useMidi(options: UseMidiOptions = {}) {
   const [ports, setPorts] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  const [inputConnected, setInputConnected] = useState<boolean | null>(null);
   const [presets, setPresets] = useState<(PresetData | null)[]>(
     Array(100).fill(null)
   );
@@ -67,8 +77,13 @@ export function useMidi() {
   const errorTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const presetsRef      = useRef<(PresetData | null)[]>(Array(100).fill(null));
   const loadPending     = useRef<Map<string, LoadPending>>(new Map());
-  const savePending     = useRef<SavePending | null>(null);
+  const savePending     = useRef<SavePending[]>([]);
   const connectedPort   = useRef<string | null>(null);
+  const lastPort        = useRef<string | null>(null); // remembered for Reconnect
+  const justConnected   = useRef(false);
+  // Always points to the latest onCC without needing to re-register event listeners.
+  const onCCRef         = useRef(options.onCC);
+  onCCRef.current       = options.onCC;
 
   useEffect(() => { presetsRef.current = presets; }, [presets]);
 
@@ -86,11 +101,30 @@ export function useMidi() {
   const connect = useCallback(async (portName: string) => {
     await invoke("connect_midi", { portName });
     connectedPort.current = portName;
+    lastPort.current      = portName;
     setConnected(true);
-    // Send after connect_midi returns — by then the midir input thread is running
-    // and the frontend midi-sysex listener (registered at mount) is ready.
-    invoke("get_live_state").catch(() => {});
+    // get_live_state is sent from the midi-input-status listener once the input
+    // thread confirms it is live — avoids a race where the response arrives before
+    // the callback is registered.
+    justConnected.current = true;
   }, []);
+
+  const disconnect = useCallback(async () => {
+    await invoke("disconnect_midi").catch(() => {});
+    // Clear connectedPort so the ports-changed watcher does NOT auto-reconnect a
+    // port the user deliberately dropped. lastPort still drives the Reconnect button.
+    connectedPort.current = null;
+    setConnected(false);
+    setInputConnected(null);
+  }, []);
+
+  const reconnect = useCallback(async () => {
+    const port = lastPort.current ?? connectedPort.current;
+    if (!port) return;
+    // connect() tears down any prior connection on the Rust side first.
+    try { await connect(port); }
+    catch (e) { reportError(`Reconnect failed: ${e}`); }
+  }, [connect, reportError]);
 
   const sendCC = useCallback(
     (stage: "mod" | "delay" | "reverb", paramIndex: number, normalised: number) => {
@@ -145,22 +179,23 @@ export function useMidi() {
 
   const savePreset = useCallback(
     (bank: number, slot: number, name: string, rawData: Uint8Array): Promise<boolean> => {
-      if (savePending.current) {
-        clearTimeout(savePending.current.timer);
-        savePending.current.resolve(false);
-        savePending.current = null;
-      }
       return new Promise<boolean>((resolve) => {
         const timer = setTimeout(() => {
-          savePending.current = null;
+          // Remove this entry from the queue on timeout (it may not be at the front
+          // if an earlier save is still pending, but that is an exceptional case).
+          const idx = savePending.current.findIndex((p) => p.resolve === resolve);
+          if (idx !== -1) savePending.current.splice(idx, 1);
           resolve(false);
         }, 2000);
-        savePending.current = { resolve, timer, bank, slot, name, rawData };
+        savePending.current.push({ resolve, timer, bank, slot, name, rawData });
         invoke("put_preset", {
           bank, slot, name, rawData: Array.from(rawData),
         }).catch(() => {
-          clearTimeout(timer);
-          savePending.current = null;
+          const idx = savePending.current.findIndex((p) => p.resolve === resolve);
+          if (idx !== -1) {
+            clearTimeout(savePending.current[idx].timer);
+            savePending.current.splice(idx, 1);
+          }
           resolve(false);
         });
       });
@@ -196,47 +231,41 @@ export function useMidi() {
   useEffect(() => {
     const unlisten = listen<number[]>("midi-sysex", (event) => {
       const msg = new Uint8Array(event.payload);
-      if (msg.length < 3 || msg[0] !== 0xF0 || msg[1] !== 0x7D) return;
+      // Fast reject: must be a SysEx frame with our manufacturer ID and a valid F7 terminator.
+      if (msg.length < 4 || msg[0] !== 0xF0 || msg[1] !== 0x7D || msg[msg.length - 1] !== 0xF7) return;
       const cmd = msg[2];
 
-      if (cmd === 0x81) {
-        if (msg.length < 5) return;
-        const bank      = msg[3];
-        const slot      = msg[4];
-        const nameBytes = msg.slice(5, 17);
-        const name      = new TextDecoder().decode(nameBytes).replace(/\0+$/, "");
-        const encoded   = msg.slice(17, msg.length - 1);
-        const rawData   = decode7bit(encoded);
-        const idx       = bank * 10 + slot;
+      if (cmd === RESP_PRESET_DATA) {
+        const frame = parsePresetDataFrame(msg);
+        if (!frame) return;
+        const { bank, slot, name, rawData } = frame;
+        const idx = bank * 10 + slot;
         presetsRef.current[idx] = { bank, slot, name, rawData };
         setPresets((prev) => {
           const next = [...prev];
           next[idx]  = { bank, slot, name, rawData };
           return next;
         });
-        const key     = `${bank}-${slot}`;
-        const pending = loadPending.current.get(key);
+        const pending = loadPending.current.get(`${bank}-${slot}`);
         if (pending) {
           clearTimeout(pending.timer);
-          loadPending.current.delete(key);
+          loadPending.current.delete(`${bank}-${slot}`);
           pending.resolve(toResult(parsePresetSlot(rawData), name));
         }
-      } else if (cmd === 0x82) {
-        if (msg.length < 7) return;
-        const bank    = msg[3];
-        const slot    = msg[4];
-        const rawData = decode7bit(msg.slice(5, msg.length - 1));
-        const parsed  = parsePresetSlot(rawData);
-        setLiveState({ bank, slot, ...parsed });
-      } else if (cmd === 0x83) {
-        if (msg.length < 6) return;
-        const originalCmd = msg[3];
-        const ok          = msg[4] === 0x00;
-        if (originalCmd === 0x02 && savePending.current) {
-          clearTimeout(savePending.current.timer);
-          const { resolve, bank, slot, name, rawData } = savePending.current;
-          savePending.current = null;
-          if (ok) {
+      } else if (cmd === RESP_LIVE_STATE) {
+        const frame = parseLiveStateFrame(msg);
+        if (!frame) return;
+        const parsed = parsePresetSlot(frame.rawData);
+        setLiveState({ bank: frame.bank, slot: frame.slot, ...parsed });
+      } else if (cmd === RESP_ACK) {
+        const ack = parseAckFrame(msg);
+        if (!ack) return;
+        if (ack.originalCmd === 0x02 && savePending.current.length > 0) {
+          // ACKs arrive in FIFO order — consume from the front of the queue.
+          const pending = savePending.current.shift()!;
+          clearTimeout(pending.timer);
+          const { resolve, bank, slot, name, rawData } = pending;
+          if (ack.ok) {
             const updated: PresetData = { bank, slot, name, rawData };
             presetsRef.current[bank * 10 + slot] = updated;
             setPresets((prev) => {
@@ -245,7 +274,7 @@ export function useMidi() {
               return next;
             });
           }
-          resolve(ok);
+          resolve(ack.ok);
         }
       }
     });
@@ -255,7 +284,23 @@ export function useMidi() {
   useEffect(() => {
     const u1 = listen<number>("midi-sync-progress", (e) => setSyncProgress(e.payload));
     const u2 = listen<void>("midi-sync-done",       () => setSyncProgress(null));
-    return () => { u1.then((f) => f()); u2.then((f) => f()); };
+    const u3 = listen<boolean>("midi-input-status", (e) => {
+      setInputConnected(e.payload);
+      // Input thread just confirmed it is live — safe to request live state now.
+      if (e.payload && justConnected.current) {
+        justConnected.current = false;
+        invoke("get_live_state").catch(() => {});
+      }
+    });
+    // Hardware knob → UI: CC messages from the device update the parameter sliders.
+    const u4 = listen<number[]>("midi-cc", (e) => {
+      const [cc, value] = e.payload;
+      const mapping = ccToMapping(cc);
+      if (!mapping) return;
+      const normalised = value / 127;
+      onCCRef.current?.(mapping.stage, mapping.paramIndex, normalised);
+    });
+    return () => { u1.then((f) => f()); u2.then((f) => f()); u3.then((f) => f()); u4.then((f) => f()); };
   }, []);
 
   // Auto-update port list; auto-reconnect if connected port reappears (e.g. after firmware flash).
@@ -266,9 +311,13 @@ export function useMidi() {
       const port = connectedPort.current;
       if (!port) return;
       if (newPorts.includes(port)) {
-        // Port reappeared — silently re-establish the output connection.
+        // Port reappeared — re-establish connection; live state is fetched via
+        // the midi-input-status event once input is confirmed live.
         invoke("connect_midi", { portName: port })
-          .then(() => setConnected(true))
+          .then(() => {
+            setConnected(true);
+            justConnected.current = true;
+          })
           .catch(() => {
             connectedPort.current = null;
             setConnected(false);
@@ -284,6 +333,7 @@ export function useMidi() {
   return {
     ports,
     connected,
+    inputConnected,
     presets,
     setPresets,
     midiError,
@@ -291,6 +341,8 @@ export function useMidi() {
     syncProgress,
     refreshPorts,
     connect,
+    disconnect,
+    reconnect,
     reportError,
     sendCC,
     setMode,
@@ -309,17 +361,3 @@ function toResult(parsed: ParsedPreset, name: string): LoadedPresetResult {
            fxEnabled: parsed.fxEnabled, name };
 }
 
-function decode7bit(input: Uint8Array): Uint8Array {
-  const out: number[] = [];
-  let i = 0;
-  while (i < input.length) {
-    const remaining = input.length - i;
-    if (remaining < 2) break;
-    const chunkLen = Math.min(remaining - 1, 7);
-    const msb      = input[i++];
-    for (let j = 0; j < chunkLen; j++) {
-      out.push(input[i++] | (((msb >> j) & 1) << 7));
-    }
-  }
-  return new Uint8Array(out);
-}

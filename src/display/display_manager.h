@@ -30,7 +30,9 @@ public:
                 int           preset_slot,
                 PresetUiEvent preset_event,
                 bool          in_browse,
-                uint32_t      now_ms);
+                uint32_t      now_ms,
+                float         cpu_load = 0.0f,
+                uint32_t      midi_rx_count = 0);
 
 private:
     St7789Driver driver_;
@@ -47,7 +49,8 @@ private:
                 bool          hold_active,
                 int           preset_slot,
                 PresetUiEvent preset_event,
-                bool          in_browse);
+                bool          in_browse,
+                float         cpu_load);
 
     static const char* ModModeName(ModModeId id);
     static const char* DelayModeName(DelayModeId id);

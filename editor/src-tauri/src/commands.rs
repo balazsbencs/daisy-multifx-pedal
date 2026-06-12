@@ -6,8 +6,8 @@ use crate::sysex;
 type SharedMidi = Arc<Mutex<MidiState>>;
 
 #[tauri::command]
-pub fn list_midi_ports() -> Vec<String> {
-    midi::list_ports()
+pub fn list_midi_ports(state: State<SharedMidi>) -> Vec<String> {
+    midi::list_ports(&state)
 }
 
 #[tauri::command]
@@ -17,6 +17,11 @@ pub fn connect_midi(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     midi::connect(&port_name, Arc::clone(&state), app)
+}
+
+#[tauri::command]
+pub fn disconnect_midi(state: State<SharedMidi>, app: tauri::AppHandle) {
+    midi::disconnect(&Arc::clone(&state), &app);
 }
 
 /// Send a MIDI CC message. channel is 0-indexed (0 = channel 1).

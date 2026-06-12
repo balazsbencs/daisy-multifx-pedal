@@ -17,6 +17,7 @@
 #include "display/display_manager.h"
 #include "tempo/tempo_sync.h"
 #include "presets/qspi_preset_store.h"
+#include "presets/browse_machine.h"
 
 using namespace daisy;
 using namespace pedal;
@@ -55,23 +56,19 @@ static bool     live_state_dirty            = false;
 static uint32_t last_change_ms              = 0;
 constexpr uint32_t kLiveStateSaveDebounceMs = 2000;
 
-static bool     hw_live_state_dirty          = false;
-static uint32_t hw_last_hw_change_ms         = 0;
-constexpr uint32_t kLiveBroadcastDebounceMs  = 100u;
-static uint32_t browse_saved_ms             = 0;
-constexpr uint32_t kBrowseSavedDisplayMs    = 1000u;
+static bool     hw_live_state_dirty         = false;
+static uint32_t hw_last_hw_change_ms        = 0;
+constexpr uint32_t kLiveBroadcastDebounceMs = 100u;
 
-// Preset browse mode
-enum class PresetMode { Normal, Browse };
-static PresetMode preset_mode         = PresetMode::Normal;
-static int        browse_bank         = 0;
-static int        browse_slot         = 0;
-static bool       tap_preset_pending  = false;
-static uint32_t   tap_hold_start_ms   = 0;
-static uint32_t   last_browse_ms      = 0;
-static constexpr uint32_t kPresetEntryHoldMs      = 1000u;
-static constexpr uint32_t kPresetInactivityMs     = 3000u;
-static constexpr uint32_t kPresetLedBlinkPeriodMs = 500u;
+static BrowseMachine browse_machine;
+
+// Deferred SetActive: visual state updates immediately on tap; QSPI write
+// happens after a short delay to avoid blocking the main loop on tap.
+static bool     preset_active_dirty  = false;
+static int      pending_active_bank  = 0;
+static int      pending_active_slot  = 0;
+static uint32_t preset_active_ms     = 0;
+static constexpr uint32_t kPresetActiveSaveMs = 200u;
 
 // Status LEDs (one per effect footswitch)
 static daisy::GPIO led_fx[3];
@@ -177,6 +174,10 @@ static void SwitchReverbMode(ReverbModeId id) {
 }
 
 static void LoadPreset(int bank, int slot) {
+    // Always update the tracked slot so liveState broadcasts reflect the new
+    // position even when the slot is empty and audio doesn't change.
+    preset_bank = bank;
+    preset_slot = slot;
     MultiPresetSlot p{};
     if (!preset_store.LoadSlot(bank, slot, p)) return;
     if (p.mod_mode    < static_cast<uint8_t>(NUM_MOD_MODES))    SwitchModMode(static_cast<ModModeId>(p.mod_mode));
@@ -191,8 +192,6 @@ static void LoadPreset(int bank, int slot) {
         fx_enabled[i] = p.fx_enabled[i];
         led_fx[i].Write(fx_enabled[i]);
     }
-    preset_bank = bank;
-    preset_slot = slot;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -278,60 +277,85 @@ int main() {
         controls.Poll();
         const ControlState& ctrl = controls.state();
 
-        // ── Effect footswitches (normal) / browse nav (preset mode) ────────────
-        if (preset_mode == PresetMode::Normal) {
-            for (int i = 0; i < 3; ++i) {
-                if (ctrl.fx_pressed[i]) {
-                    fx_enabled[i]        = !fx_enabled[i];
-                    led_fx[i].Write(fx_enabled[i]);
-                    live_state_dirty     = true;
-                    last_change_ms       = now;
-                    hw_live_state_dirty  = true;
-                    hw_last_hw_change_ms = now;
-                }
+        // ── Browse machine update ─────────────────────────────────────────────
+        {
+            BrowseInput bro_in{};
+            bro_in.tap_pressed  = ctrl.tap_pressed;
+            bro_in.tap_held     = ctrl.tap_held;
+            bro_in.tap_held_ms  = ctrl.tap_held_ms;
+            bro_in.tap_released = ctrl.tap_released;
+            bro_in.fx0_pressed  = ctrl.fx_pressed[0];
+            bro_in.fx1_pressed  = ctrl.fx_pressed[1];
+            bro_in.fx2_pressed  = ctrl.fx_pressed[2];
+            bro_in.now_ms       = now;
+            bro_in.current_bank = preset_bank;
+            bro_in.current_slot = preset_slot;
+            bro_in.active_bank  = preset_store.GetActiveBank();
+            bro_in.active_slot  = preset_store.GetActiveSlot();
+            const BrowseOutput bro = browse_machine.Update(bro_in);
+
+            if (bro.load_preset) {
+                LoadPreset(bro.bank, bro.slot);
             }
-        } else { // PresetMode::Browse
-            // fx[0]=MOD → prev, fx[1]=DELAY → save, fx[2]=REVERB → next
-            if (ctrl.fx_pressed[0]) {
-                if (--browse_slot < 0) {
-                    browse_slot = PRESET_SLOTS_PER_BANK - 1;
-                    browse_bank = (browse_bank - 1 + PRESET_BANK_COUNT) % PRESET_BANK_COUNT;
-                }
-                LoadPreset(browse_bank, browse_slot);
-                last_browse_ms       = now;
-                hw_live_state_dirty  = true;
-                hw_last_hw_change_ms = now;
-            }
-            if (ctrl.fx_pressed[2]) {
-                if (++browse_slot >= PRESET_SLOTS_PER_BANK) {
-                    browse_slot = 0;
-                    browse_bank = (browse_bank + 1) % PRESET_BANK_COUNT;
-                }
-                LoadPreset(browse_bank, browse_slot);
-                last_browse_ms       = now;
-                hw_live_state_dirty  = true;
-                hw_last_hw_change_ms = now;
-            }
-            if (ctrl.fx_pressed[1]) {
+            if (bro.save_preset) {
                 const MultiPresetSlot snap = SnapshotLiveState();
-                const char* existing_name  = preset_store.GetName(browse_bank, browse_slot);
-                const char* save_name      = (existing_name && existing_name[0]) ? existing_name : "Preset";
-                preset_store.SaveSlot(browse_bank, browse_slot, snap, save_name);
-                last_browse_ms       = now;
-                browse_saved_ms      = now;
+                const char* existing = preset_store.GetName(bro.bank, bro.slot);
+                const char* name = (existing && existing[0]) ? existing : "Preset";
+                preset_store.SaveSlot(bro.bank, bro.slot, snap, name);
+            }
+            if (bro.set_active) {
+                preset_bank         = bro.bank;
+                preset_slot         = bro.slot;
+                pending_active_bank = bro.bank;
+                pending_active_slot = bro.slot;
+                preset_active_dirty = true;
+                preset_active_ms    = now;
+            }
+            if (bro.exited) {
+                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
+            }
+            if (bro.hw_dirty) {
                 hw_live_state_dirty  = true;
                 hw_last_hw_change_ms = now;
             }
-
-            // Blink all three LEDs at 2 Hz.
-            const bool blink_on = ((now % kPresetLedBlinkPeriodMs) < (kPresetLedBlinkPeriodMs / 2u));
-            for (int i = 0; i < 3; ++i) led_fx[i].Write(blink_on);
-
-            // Auto-exit after inactivity.
-            if ((now - last_browse_ms) >= kPresetInactivityMs) {
-                LoadPreset(preset_store.GetActiveBank(), preset_store.GetActiveSlot());
-                preset_mode = PresetMode::Normal;
-                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
+            if (bro.short_tap) {
+                tempo_sync.OnTap(now);
+            }
+            // Hold activation/deactivation (Normal mode only, only when browse
+            // entry is not armed — mirrors original tap_preset_pending guard).
+            if (!browse_machine.InBrowse()) {
+                if (browse_machine.TapPending() && hold_active) {
+                    hold_active = false;
+                    audio_engine.SetHold(false);
+                }
+                if (!browse_machine.TapPending() && ctrl.tap_held &&
+                        ctrl.tap_held_ms > 500 && !hold_active) {
+                    hold_active = true;
+                    audio_engine.SetHold(true);
+                }
+                if (bro.short_tap && hold_active && ctrl.tap_held_ms <= 500) {
+                    hold_active = false;
+                    audio_engine.SetHold(false);
+                }
+            }
+            // Blink LEDs in browse mode.
+            if (browse_machine.InBrowse()) {
+                const bool blink = ((now % kPresetLedBlinkPeriodMs) <
+                                    (kPresetLedBlinkPeriodMs / 2u));
+                for (int i = 0; i < 3; ++i) led_fx[i].Write(blink);
+            }
+            // Effect footswitches toggle bypass when NOT browsing.
+            if (!browse_machine.InBrowse()) {
+                for (int i = 0; i < 3; ++i) {
+                    if (ctrl.fx_pressed[i]) {
+                        fx_enabled[i]        = !fx_enabled[i];
+                        led_fx[i].Write(fx_enabled[i]);
+                        live_state_dirty     = true;
+                        last_change_ms       = now;
+                        hw_live_state_dirty  = true;
+                        hw_last_hw_change_ms = now;
+                    }
+                }
             }
         }
 
@@ -405,48 +429,22 @@ int main() {
             }
         }
 
-        // ── Tap footswitch ─────────────────────────────────────────────────────
-        if (preset_mode == PresetMode::Normal) {
-            if (ctrl.tap_pressed) {
-                tap_hold_start_ms  = now;
-                tap_preset_pending = false;
-                tempo_sync.OnTap(now);
-            }
-            if (ctrl.tap_held && !tap_preset_pending &&
-                (now - tap_hold_start_ms) >= kPresetEntryHoldMs) {
-                tap_preset_pending = true;
-                if (hold_active) { hold_active = false; audio_engine.SetHold(false); }
-            }
-            if (!tap_preset_pending && ctrl.tap_held &&
-                ctrl.tap_held_ms > 500 && !hold_active) {
-                hold_active = true;
-                audio_engine.SetHold(true);
-            }
-            if (ctrl.tap_released) {
-                if (tap_preset_pending) {
-                    browse_bank        = preset_bank;
-                    browse_slot        = preset_slot;
-                    preset_mode        = PresetMode::Browse;
-                    last_browse_ms     = now;
-                    tap_preset_pending = false;
-                } else if (hold_active && ctrl.tap_held_ms <= 500) {
-                    hold_active = false;
-                    audio_engine.SetHold(false);
-                }
-            }
-        } else { // PresetMode::Browse
-            if (ctrl.tap_pressed) {
-                preset_store.SetActive(browse_bank, browse_slot);
-                preset_bank = browse_bank;
-                preset_slot = browse_slot;
-                preset_mode = PresetMode::Normal;
-                for (int i = 0; i < 3; ++i) led_fx[i].Write(fx_enabled[i]);
-            }
-        }
+        // Tap footswitch + browse machine are handled in the browse update block above.
 
         // ── MIDI ───────────────────────────────────────────────────────────────
         MultiMidiState midi;
         midi_handler.Poll(midi);
+
+        // Diagnostic: pulse the onboard Daisy Seed LED (PC7, always present) on
+        // any received MIDI event, so host→device traffic is visible even without
+        // the screen. Moving an editor control should make it blink.
+        {
+            static uint32_t diag_last_rx   = 0;
+            static uint32_t diag_led_until = 0;
+            const uint32_t  rxc = midi_handler.RxEventCount();
+            if (rxc != diag_last_rx) { diag_last_rx = rxc; diag_led_until = now + 120u; }
+            hw.SetLed(now < diag_led_until);
+        }
 
         for (int p = 0; p < NUM_PARAMS; ++p) {
             if (midi.mod_cc_rx[p])    { mod_norm[p]    = midi.mod_cc[p];    live_state_dirty = true; last_change_ms = now; }
@@ -461,8 +459,10 @@ int main() {
 
         if (midi.preset_load) {
             LoadPreset(midi.sysex_bank, midi.sysex_slot);
-            live_state_dirty = true;
-            last_change_ms   = now;
+            live_state_dirty     = true;
+            last_change_ms       = now;
+            hw_live_state_dirty  = true;   // broadcast updated state back to editor
+            hw_last_hw_change_ms = now;
         }
         if (midi.mode_change) {
             const int idx = midi.mode_index;
@@ -505,20 +505,30 @@ int main() {
         if (now - display_last_ms >= DISPLAY_UPDATE_MS) {
             display_last_ms = now;
 
-            const PresetUiEvent ui_event = (browse_saved_ms && (now - browse_saved_ms) < kBrowseSavedDisplayMs)
+            const uint32_t saved_ms = browse_machine.SavedMs();
+            const PresetUiEvent ui_event = (saved_ms && (now - saved_ms) < kBrowseSavedDisplayMs)
                                             ? PresetUiEvent::Saved : PresetUiEvent::None;
             display.Update(active_page, shift,
                            cur_mod, cur_delay, cur_reverb,
                            buf.mod, buf.delay, buf.reverb,
                            fx_enabled, hold_active,
                            preset_bank * PRESET_SLOTS_PER_BANK + preset_slot,
-                           ui_event, preset_mode == PresetMode::Browse, now);
+                           ui_event, browse_machine.InBrowse(), now,
+                           AudioEngine::GetCpuUsage(),
+                           midi_handler.RxEventCount());
         }
 
         // ── Live state auto-save (debounced) ──────────────────────────────────
         if (live_state_dirty && (now - last_change_ms) >= kLiveStateSaveDebounceMs) {
             preset_store.SaveLiveState(SnapshotLiveState());
             live_state_dirty = false;
+        }
+
+        // ── Deferred SetActive (browse confirm) ───────────────────────────────
+        // Called 200 ms after tap to keep the loop responsive during the erase.
+        if (preset_active_dirty && (now - preset_active_ms) >= kPresetActiveSaveMs) {
+            preset_store.SetActive(pending_active_bank, pending_active_slot);
+            preset_active_dirty = false;
         }
 
         // ── Broadcast live state to editor on hardware-initiated change ────────

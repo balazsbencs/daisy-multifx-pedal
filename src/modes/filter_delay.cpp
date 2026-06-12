@@ -53,6 +53,14 @@ void FilterDelay::Prepare(const ParamSet& params) {
     svf_r_.SetQ(q);
     filter_fb_gain_ = 1.0f / q;
     if (filter_fb_gain_ > 1.0f) filter_fb_gain_ = 1.0f;
+
+    // Precompute g bounds for the LFO sweep so Process() can use SetG() instead of
+    // calling tanf() 96 times per block (once per sample for each channel).
+    const float max_mod = params.mod_dep * 1500.0f;
+    const float f_lo = (800.0f - max_mod < 10.0f)    ? 10.0f    : 800.0f - max_mod;
+    const float f_hi = (800.0f + max_mod > 20000.0f) ? 20000.0f : 800.0f + max_mod;
+    g_lo_ = tanf(3.14159265f * f_lo * INV_SAMPLE_RATE);
+    g_hi_ = tanf(3.14159265f * f_hi * INV_SAMPLE_RATE);
 }
 
 StereoFrame FilterDelay::Process(float input, const ParamSet& params) {
@@ -75,12 +83,12 @@ StereoFrame FilterDelay::Process(float input, const ParamSet& params) {
     // Advance LFO per-sample
     float lfo_val = lfo_.Process();
 
-    // Out-of-phase cutoff modulation updated per-sample to eliminate zipper noise (Bug 9)
-    float cutoff_l = 800.0f + lfo_val * params.mod_dep * 1500.0f;
-    float cutoff_r = 800.0f - lfo_val * params.mod_dep * 1500.0f;
-
-    svf_l_.SetFreq(cutoff_l);
-    svf_r_.SetFreq(cutoff_r);
+    // Out-of-phase cutoff modulation per-sample to eliminate zipper noise (Bug 9).
+    // g bounds are precomputed in Prepare() so no tanf() call is needed here.
+    const float t_l = (lfo_val + 1.0f) * 0.5f;   // [0, 1]: 0 = lowest, 1 = highest
+    const float t_r = (1.0f - lfo_val) * 0.5f;   // out of phase
+    svf_l_.SetG(g_lo_ + t_l * (g_hi_ - g_lo_));
+    svf_r_.SetG(g_lo_ + t_r * (g_hi_ - g_lo_));
 
     float wet_l = filter_line_l.Read();
     float wet_r = filter_line_r.Read();
