@@ -40,10 +40,16 @@ public:
     void Poll(MultiMidiState& out);
     void SendLiveState(int bank, int slot, const MultiPresetSlot& state);
 
+    // Diagnostic: total MIDI events processed (UART + USB) since boot. Lets the
+    // main loop show RX activity on the display / onboard LED so we can confirm
+    // host→device messages actually arrive.
+    uint32_t RxEventCount() const { return rx_events_; }
+
 private:
     daisy::MidiUartHandler uart_;
     daisy::MidiUsbHandler  usb_;
     QspiPresetStore*       store_ = nullptr;
+    uint32_t               rx_events_ = 0;
 
     void ProcessEvent(daisy::MidiEvent e, MultiMidiState& out);
     void HandleSysEx(const uint8_t* data, size_t len, MultiMidiState& out);

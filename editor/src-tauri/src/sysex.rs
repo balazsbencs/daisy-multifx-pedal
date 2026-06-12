@@ -71,11 +71,11 @@ pub fn build_get_live_state() -> Vec<u8> {
     vec![0xF0, 0x7D, 0x0B, 0xF7]
 }
 
-/// Parse a LIVE_STATE response (cmd 0x82).
+/// Parse a LIVE_STATE response (cmd 0x42).
 /// Returns (bank, slot, raw_92_bytes) or None if malformed.
 pub fn parse_live_state(frame: &[u8]) -> Option<(u8, u8, Vec<u8>)> {
-    // frame: F0 7D 82 bank slot encoded[106] F7
-    if frame.len() < 5 || frame[0] != 0xF0 || frame[1] != 0x7D || frame[2] != 0x82 {
+    // frame: F0 7D 42 bank slot encoded[106] F7
+    if frame.len() < 5 || frame[0] != 0xF0 || frame[1] != 0x7D || frame[2] != 0x42 {
         return None;
     }
     let bank = frame[3];
@@ -84,11 +84,11 @@ pub fn parse_live_state(frame: &[u8]) -> Option<(u8, u8, Vec<u8>)> {
     Some((bank, slot, raw))
 }
 
-/// Parse a PRESET_DATA response (cmd 0x81).
+/// Parse a PRESET_DATA response (cmd 0x41).
 /// Returns (bank, slot, name, raw_92_bytes) or None if malformed.
 pub fn parse_preset_data(frame: &[u8]) -> Option<(u8, u8, String, Vec<u8>)> {
-    // frame: F0 7D 81 bank slot name[12] encoded[106] F7
-    if frame.len() < 5 || frame[0] != 0xF0 || frame[1] != 0x7D || frame[2] != 0x81 { return None; }
+    // frame: F0 7D 41 bank slot name[12] encoded[106] F7
+    if frame.len() < 5 || frame[0] != 0xF0 || frame[1] != 0x7D || frame[2] != 0x41 { return None; }
     let bank = frame[3];
     let slot = frame[4];
     if frame.len() < 5 + 12 { return None; }
@@ -132,7 +132,7 @@ mod tests {
     fn live_state_round_trip() {
         let raw: Vec<u8> = (0u8..92).collect();
         let encoded = encode_7bit(&raw);
-        let mut frame = vec![0xF0, 0x7D, 0x82, 3u8, 7u8];
+        let mut frame = vec![0xF0, 0x7D, 0x42, 3u8, 7u8];
         frame.extend_from_slice(&encoded);
         frame.push(0xF7);
         let result = parse_live_state(&frame).expect("should parse");
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn parse_live_state_rejects_wrong_cmd() {
-        let mut frame = vec![0xF0, 0x7D, 0x81, 0, 0];
+        let mut frame = vec![0xF0, 0x7D, 0x41, 0, 0]; // PRESET_DATA cmd, not LIVE_STATE
         frame.extend_from_slice(&encode_7bit(&[0u8; 92]));
         frame.push(0xF7);
         assert!(parse_live_state(&frame).is_none());

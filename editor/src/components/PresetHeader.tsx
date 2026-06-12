@@ -12,6 +12,8 @@ interface PresetHeaderProps {
   connected: boolean;
   ports: string[];
   onConnect: (portName: string) => void;
+  onDisconnect: () => void;
+  onReconnect: () => void;
   onRefresh: () => void;
   activePreset: { bank: number; slot: number } | null;
   presetName: string;
@@ -28,7 +30,7 @@ interface PresetHeaderProps {
 }
 
 export function PresetHeader({
-  connected, ports, onConnect, onRefresh,
+  connected, ports, onConnect, onDisconnect, onReconnect, onRefresh,
   activePreset, presetName, isDirty, isSaving, saveError, midiError,
   onNameChange, onSave, onSyncAll, onExport, onImport, syncProgress,
 }: PresetHeaderProps) {
@@ -71,7 +73,26 @@ export function PresetHeader({
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className={`text-xs ${connected ? "text-cyan-400" : "text-zinc-500"}`}>⬤</span>
         {connected ? (
-          <span className="text-xs text-zinc-400">Connected</span>
+          <>
+            <span className="text-xs text-zinc-400">Connected</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs px-2"
+              onClick={onReconnect}
+              title="Reconnect (after flashing or if the device dropped off USB)"
+            >
+              ↻ Reconnect
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs px-2"
+              onClick={onDisconnect}
+            >
+              Disconnect
+            </Button>
+          </>
         ) : (
           <>
             <Select value={selectedPort} onValueChange={(v) => setSelectedPort(v ?? "")}>

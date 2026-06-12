@@ -22,6 +22,7 @@ void MidiHandlerPedal::Poll(MultiMidiState& out) {
 }
 
 void MidiHandlerPedal::ProcessEvent(daisy::MidiEvent e, MultiMidiState& out) {
+    ++rx_events_; // diagnostic RX activity counter (UART + USB)
     switch (e.type) {
         case daisy::ControlChange: {
             const uint8_t cc  = e.data[0];
@@ -99,13 +100,9 @@ void MidiHandlerPedal::HandleSysEx(const uint8_t* data, size_t len,
             SendAck(cmd, true);
             break;
         }
-        case 0x05u: { // GET_ALL
-            // Sends 100 x 124-byte frames. USB TX FIFO (~512 bytes) will overflow;
-            // desktop app should use 100 sequential GET_PRESET (0x01) calls instead
-            // for reliable bulk sync.
-            for (int b = 0; b < PRESET_BANK_COUNT; ++b)
-                for (int s = 0; s < PRESET_SLOTS_PER_BANK; ++s)
-                    SendPresetData(b, s);
+        case 0x05u: { // GET_ALL — disabled: 100 x 112-byte frames overflow the USB TX FIFO.
+            // Use 100 sequential CMD_GET_PRESET (0x01) calls with pacing (≥25 ms gap) instead.
+            SendAck(cmd, false);
             break;
         }
         case 0x06u: { // GET_STATUS — returns current active bank/slot via ACK
@@ -145,13 +142,16 @@ void MidiHandlerPedal::SendPresetData(int bank, int slot) {
     store_->LoadSlot(bank, slot, s);
     const char* name = store_->GetName(bank, slot);
 
-    // Frame: F0 7D 81 bank slot name[12] encoded[106] F7  (total ≤ 128 bytes)
+    // Frame: F0 7D 41 bank slot name[12] encoded[106] F7  (total ≤ 128 bytes)
+    // NOTE: every byte between F0 and F7 must be < 0x80 — SysEx payload is 7-bit.
+    // The response command byte (0x41) MUST stay < 0x80, otherwise the USB-MIDI
+    // packetizer treats it as a status byte and corrupts the frame.
     constexpr size_t kEncLen = EncodedSize(92);
     static uint8_t buf[1u + 1u + 1u + 1u + 1u + 12u + kEncLen + 1u];
     size_t i = 0;
     buf[i++] = 0xF0u;
     buf[i++] = 0x7Du;
-    buf[i++] = 0x81u;
+    buf[i++] = 0x41u; // RESP_PRESET_DATA (7-bit)
     buf[i++] = static_cast<uint8_t>(bank);
     buf[i++] = static_cast<uint8_t>(slot);
     memcpy(buf + i, name, 12u); i += 12u;
@@ -165,7 +165,7 @@ void MidiHandlerPedal::SendPresetData(int bank, int slot) {
 void MidiHandlerPedal::SendAck(uint8_t cmd, bool ok) {
     if (!store_) return;
     uint8_t ack[8] = {
-        0xF0u, 0x7Du, 0x83u,
+        0xF0u, 0x7Du, 0x43u, // RESP_ACK (7-bit — must stay < 0x80)
         cmd,
         static_cast<uint8_t>(ok ? 0x00u : 0x01u),
         static_cast<uint8_t>(store_->GetActiveBank()),
@@ -179,12 +179,13 @@ void MidiHandlerPedal::SendLiveState(int bank, int slot,
                                       const MultiPresetSlot& state) {
     if (!store_) return;
     constexpr size_t kEncLen = EncodedSize(92);
-    // Frame: F0 7D 82 bank slot encoded[106] F7  (total 112 bytes)
+    // Frame: F0 7D 42 bank slot encoded[106] F7  (total 112 bytes)
+    // 0x42 (RESP_LIVE_STATE) must stay < 0x80 — see SendPresetData note.
     static uint8_t buf[1u + 1u + 1u + 1u + 1u + kEncLen + 1u];
     size_t i = 0;
     buf[i++] = 0xF0u;
     buf[i++] = 0x7Du;
-    buf[i++] = 0x82u;
+    buf[i++] = 0x42u; // RESP_LIVE_STATE (7-bit)
     buf[i++] = static_cast<uint8_t>(bank);
     buf[i++] = static_cast<uint8_t>(slot);
     uint8_t raw[92];
